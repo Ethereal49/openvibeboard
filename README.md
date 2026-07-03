@@ -25,7 +25,7 @@
 
 ```bash
 # 1. 克隆
-git clone https://github.com/ethereal/openvibeboard.git
+git clone https://github.com/Ethereal49/openvibeboard.git
 cd openvibeboard
 
 # 2. 同步依赖（uv 自动创建 .venv 并安装，生成 uv.lock）

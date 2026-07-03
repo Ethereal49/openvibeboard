@@ -5,7 +5,7 @@
 ## 开发环境
 
 ```bash
-git clone https://github.com/ethereal/openvibeboard.git
+git clone https://github.com/Ethereal49/openvibeboard.git
 cd openvibeboard
 uv sync                                   # 创建 .venv 并装依赖
 uv run python -u vibe_control.py          # 运行守护进程

@@ -17,4 +17,4 @@
 - 组合键录制用 `event.code` 规避 macOS Option 让 `event.key` 失真的坑
 - 用 [uv](https://docs.astral.sh/uv/) 管理环境与依赖：`pyproject.toml` 声明依赖、`uv.lock` 锁版本、`uv sync` 复现、`uv run` 运行（取代 requirements.txt）
 
-[0.1.0]: https://github.com/ethereal/openvibeboard/releases/tag/v0.1.0
+[0.1.0]: https://github.com/Ethereal49/openvibeboard/releases/tag/v0.1.0
