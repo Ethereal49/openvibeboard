@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>VibeBoard 按键配置</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", sans-serif; max-width: 720px;
+         margin: 40px auto; padding: 0 20px; color: #1d1d1f; background: #f5f5f7; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #6e6e73; font-size: 13px; margin-bottom: 20px; }
+  .key { background: #fff; border: 1px solid #d2d2d7; border-radius: 10px;
+         padding: 16px 18px; margin: 12px 0; }
+  .key header { font-weight: 700; font-size: 16px; margin-bottom: 10px;
+                display: flex; align-items: center; gap: 8px; }
+  .badge { background: #007aff; color: #fff; font-size: 11px; padding: 2px 8px;
+           border-radius: 10px; font-weight: 600; }
+  label { display: block; font-size: 12px; color: #6e6e73; margin: 8px 0 3px; }
+  input, select { width: 100%; padding: 7px 10px; font-size: 14px;
+                  border: 1px solid #c7c7cc; border-radius: 6px; background: #fff; }
+  input:focus, select:focus { outline: none; border-color: #007aff; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  .actions { position: sticky; bottom: 0; background: #f5f5f7; padding: 16px 0; }
+  button { padding: 9px 24px; background: #007aff; color: #fff; border: 0;
+           border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:active { transform: scale(0.98); }
+  .rec { padding: 7px 12px; font-size: 12px; font-weight: 500; background: #f2f2f7;
+         color: #007aff; border: 1px solid #d2d2d7; cursor: pointer; white-space: nowrap; }
+  .rec.recing { background: #ff3b30; color: #fff; border-color: #ff3b30; }
+  .value-row { display: flex; gap: 8px; align-items: center; }
+  .value-row input { flex: 1; }
+  textarea { width: 100%; padding: 7px 10px; font-size: 14px; border: 1px solid #c7c7cc;
+             border-radius: 6px; background: #fff; resize: vertical;
+             font-family: -apple-system, "PingFang SC", sans-serif; }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 12px;
+           color: #6e6e73; margin: 6px 0; }
+  .check input { width: auto; }
+  .msg { display: inline-block; margin-left: 14px; font-size: 13px; }
+  .ok { color: #27ae60; } .err { color: #e74c3c; }
+  .hint { font-size: 11px; color: #999; margin-top: 2px; }
+</style>
+</head>
+<body>
+<h1>⌨️ VibeBoard 按键配置</h1>
+<div class="sub">改完点保存，立即生效。动作类型：Shell 命令 / 击键。模式：瞬时 / 按住。</div>
+<div id="keys"></div>
+<div class="actions">
+  <button onclick="save()">💾 保存并生效</button>
+  <span class="msg" id="msg"></span>
+</div>
+
+<script>
+let cfg = {};
+
+async function load() {
+  cfg = await (await fetch("/api/config")).json();
+  const root = document.getElementById("keys");
+  root.innerHTML = "";
+  for (const [k, c] of Object.entries(cfg)) {
+    const div = document.createElement("div");
+    div.className = "key";
+    div.innerHTML = `
+      <header><span class="badge">${k.toUpperCase()}</span> 按键 ${k.toUpperCase()}</header>
+      <label>描述</label>
+      <input data-k="${k}" data-f="desc" value="${esc(c.desc)}">
+      <div class="row">
+        <div>
+          <label>动作类型</label>
+          <select data-k="${k}" data-f="type" onchange="onType(this)">
+            <option value="cmd" ${c.type==='cmd'?'selected':''}>Shell 命令</option>
+            <option value="key" ${c.type==='key'?'selected':''}>击键</option>
+            <option value="text" ${c.type==='text'?'selected':''}>输入文本</option>
+          </select>
+        </div>
+        <div class="mode-wrap" data-k="${k}"${c.type==='text'?' style="display:none"':''}>
+          <label>模式</label>
+          <select data-k="${k}" data-f="mode">
+            <option value="tap" ${(c.mode||'tap')==='tap'?'selected':''}>瞬时 (按下即触发)</option>
+            <option value="hold" ${c.mode==='hold'?'selected':''}>按住 (按住=按下,松开=释放)</option>
+          </select>
+        </div>
+      </div>
+      <label class="value-label" data-k="${k}">${valueLabel(c.type)}</label>
+      <div class="value-wrap" data-k="${k}">${valueHtml(k, c.type, c.value, c.enter !== false)}</div>
+      <div class="hint" data-k="${k}"></div>
+    `;
+    root.appendChild(div);
+    updateHint(k, c.type);
+  }
+}
+
+function valueLabel(type) {
+  return {cmd: "命令", key: "击键", text: "文本"}[type] || "命令";
+}
+
+function valueHtml(k, type, value, enter) {
+  if (type === "text") {
+    return `<textarea data-k="${k}" data-f="value" rows="2">${esc(value)}</textarea>
+      <label class="check"><input type="checkbox" data-k="${k}" data-f="enter"${enter ? ' checked' : ''}> 输入后回车（粘贴后补一个 Enter）</label>`;
+  }
+  const rec = type === "key"
+    ? `<button type="button" class="rec" data-k="${k}" onclick="startRec(this)">录制</button>`
+    : "";
+  return `<div class="value-row"><input data-k="${k}" data-f="value" value="${esc(value)}">${rec}</div>`;
+}
+
+function onType(sel) {
+  const k = sel.dataset.k;
+  const type = sel.value;
+  const cv = cfg[k] || {};
+  // 切换前把当前 value 写回 cfg，避免重建控件丢输入
+  const cur = document.querySelector(`[data-k="${k}"][data-f="value"]`);
+  if (cur) cv.value = cur.value;
+  cv.type = type;
+  // 重建 value 控件
+  const wrap = document.querySelector(`.value-wrap[data-k="${k}"]`);
+  if (wrap) wrap.innerHTML = valueHtml(k, type, cv.value, cv.enter !== false);
+  const lbl = document.querySelector(`.value-label[data-k="${k}"]`);
+  if (lbl) lbl.textContent = valueLabel(type);
+  // text 类型隐藏 mode
+  const modeWrap = document.querySelector(`.mode-wrap[data-k="${k}"]`);
+  if (modeWrap) modeWrap.style.display = (type === "text") ? "none" : "";
+  updateHint(k, type);
+}
+
+function updateHint(k, type) {
+  const el = document.querySelector(`.hint[data-k="${k}"]`);
+  if (!el) return;
+  el.textContent = type === "key"
+    ? "击键格式：option+d / ctrl+c / esc / tab / enter / 单字符。点「录制」直接按物理键。按住模式适合语音软件"
+    : type === "text"
+    ? "输入文本：触发时通过剪贴板粘贴（绕过中文输入法），可勾选末尾回车"
+    : "Shell 命令，如 open -a Codex / codex resume --last（模式对命令无效）";
+}
+
+// —— 组合键录制 ——
+let recBtn = null;
+function startRec(btn) {
+  if (recBtn) stopRec(false);
+  recBtn = btn;
+  btn.textContent = "按组合键… (Esc 取消)";
+  btn.classList.add("recing");
+}
+function stopRec(write, value) {
+  if (!recBtn) return;
+  const k = recBtn.dataset.k;
+  if (write) {
+    const input = document.querySelector(`input[data-k="${k}"][data-f="value"]`);
+    if (input) input.value = value;
+  }
+  recBtn.textContent = "录制";
+  recBtn.classList.remove("recing");
+  recBtn = null;
+}
+function mapKey(e) {
+  const mods = [];
+  if (e.ctrlKey) mods.push("ctrl");
+  if (e.metaKey) mods.push("cmd");
+  if (e.altKey) mods.push("option");
+  if (e.shiftKey) mods.push("shift");
+  // 用 e.code（物理键位）而非 e.key：macOS Option 组合会让 e.key 变特殊字符（Option+D → ∂）
+  if (e.key === "Escape" || e.code === "Escape") return {cancel: true};
+  const code = e.code;
+  let key = null;
+  if (/^Key[A-Z]$/.test(code)) key = code.slice(3).toLowerCase();
+  else if (/^Digit[0-9]$/.test(code)) key = code.slice(5);
+  else if (code === "Space") key = "space";
+  else if (code === "Tab") key = "tab";
+  else if (code === "Enter") key = "enter";
+  else if (code === "Backspace") key = "delete";
+  else if (code === "ArrowUp") key = "up";
+  else if (code === "ArrowDown") key = "down";
+  else if (code === "ArrowLeft") key = "left";
+  else if (code === "ArrowRight") key = "right";
+  else return null;          // 不识别的键（如 F1-F12），继续等下一次
+  if (mods.length >= 1) return {value: mods[0] + "+" + key, multi: mods.length > 1};
+  return {value: key};
+}
+document.addEventListener("keydown", (e) => {
+  if (!recBtn) return;
+  e.preventDefault();
+  const k = recBtn.dataset.k;
+  const r = mapKey(e);
+  if (!r) return;
+  if (r.cancel) { stopRec(false); return; }
+  stopRec(true, r.value);
+  if (r.multi) {
+    const hint = document.querySelector(`.hint[data-k="${k}"]`);
+    if (hint) hint.textContent = "⚠ 多个修饰键，仅取第一个（后端暂只支持单 modifier）";
+  }
+});
+
+function esc(s) { return String(s||"").replace(/"/g, "&quot;").replace(/</g,"&lt;"); }
+
+async function save() {
+  document.querySelectorAll("[data-k][data-f]").forEach(el => {
+    cfg[el.dataset.k][el.dataset.f] = (el.type === "checkbox") ? el.checked : el.value;
+  });
+  const msg = document.getElementById("msg");
+  try {
+    const r = await fetch("/api/config", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(cfg)
+    });
+    const j = await r.json();
+    msg.className = "msg " + (j.ok ? "ok" : "err");
+    msg.textContent = j.ok ? "✅ 已保存并生效" : "❌ " + (j.err || "保存失败");
+  } catch (e) {
+    msg.className = "msg err";
+    msg.textContent = "❌ " + e;
+  }
+}
+
+load();
+</script>
+</body>
+</html>

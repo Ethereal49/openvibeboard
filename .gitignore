@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+
+# 虚拟环境（本项目用 /tmp/vb_venv，本地若建其他 venv 也忽略）
+venv/
+.venv/
+env/
+
+# macOS
+.DS_Store
+
+# IDE / 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 测试 / 运行产物
+.playwright-mcp/
+*.tmp
+*.log
+
+# 注意：以下 AI 工具目录【不忽略】，需提交以共享团队配置与 spec：
+#   .trellis/  .claude/  .codex/  .agents/
+# （.trellis/ 内部的本地运行时文件由 .trellis/.gitignore 单独忽略）

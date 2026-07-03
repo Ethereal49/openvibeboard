@@ -1,0 +1,15 @@
+[project]
+name = "openvibeboard"
+version = "0.1.0"
+description = "ESP32-S3 键盘 macOS 端接管守护进程（HTTP 配置 + 串口监听 + 按键动作分发）"
+readme = "README.md"
+requires-python = ">=3.10"  # pyobjc-framework-Quartz 12.x 起要求 Python>=3.10
+license = { text = "MIT" }
+authors = [{ name = "ethereal49" }]
+dependencies = [
+    "pyserial>=3.5",                # 串口监听 ESP32-S3 键盘日志（必需）
+    "pyobjc-framework-Quartz>=12.0", # CGEvent 实现 hold 按住语义（可选，hold 模式必需）
+]
+
+[tool.uv]
+package = false  # 应用项目（单文件脚本），不作为 Python 包构建/安装；uv sync 只装 dependencies

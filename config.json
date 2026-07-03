@@ -1,0 +1,6 @@
+{
+  "k1": {"type": "cmd", "value": "open -a Codex", "mode": "tap", "desc": "打开 Codex"},
+  "k2": {"type": "text", "value": "继续", "enter": true, "desc": "输入'继续'并回车"},
+  "k3": {"type": "key", "value": "ctrl+c", "mode": "tap", "desc": "Ctrl+C"},
+  "k4": {"type": "key", "value": "option+d", "mode": "hold", "desc": "语音(按住)"}
+}
