@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "CGEvent hold 的 modifier flag 坑（必须在 char keydown 上挂 flag，不能单独发 modifier keydown/up）——Swift CGEvent 实现的核心硬门。复刻业务逻辑，不是 Python 语法。另含 CONFIG_LOCK 并发保护、tap/hold 二选一不混、权限前置、禁止模式（动作必须走分发链）等跨语言有效约束。"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "config.json schema（键名/字段必须兼容以便迁移）、串口协议解析 button down/up kN、动作分发链 cmd→Process / key→CGEvent tap|hold / text→剪贴板。Swift 重写的逻辑蓝本，复刻语义不改结构。"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "容错哲学：Python 是 try/except ImportError + HAS_* flag 降级；Swift 对应 CGEvent 权限缺失/串口打开失败的优雅降级 + 守护进程不崩。复刻容错语义。"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "log 格式与「何时记/不记什么」语义。Swift 用 os.Logger 复刻同样的事件记录边界。"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "串口→协议解析→config 查询→动作分发→CGEvent/Process/剪贴板 是典型跨层数据流；重写时按指南检查层间数据格式与职责边界。"}
+{"file": ".trellis/tasks/07-04-swift-menubar-app/research/menubar-extra-and-scaffold.md", "reason": "阶段 A 起步研究：MenuBarExtra API（context7 查证）+ xcodegen 项目骨架方案（project.yml 模板）+ LSUIElement 等 menu bar app 关键 plist key + Config.swift Codable 草案 + 构建验收命令。后续 SwiftUI 相关阶段（D Settings）也参考。"}

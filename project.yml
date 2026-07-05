@@ -1,0 +1,34 @@
+name: VibeBoard
+options:
+  bundleIdPrefix: com.ethereal49
+  deploymentTarget:
+    macOS: "13.0"
+  developmentLanguage: zh-Hans
+settings:
+  base:
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"   # 先用 Swift 5 mode，避免 Swift 6 并发严格性踩坑
+    # 让 Application Support 写入 / 进程权限等行为可预测
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGNING_REQUIRED: NO
+    CODE_SIGNING_ALLOWED: NO
+targets:
+  VibeBoard:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: VibeBoard
+    info:
+      path: VibeBoard/Info.plist
+      properties:
+        CFBundleDisplayName: VibeBoard
+        CFBundleShortVersionString: $(MARKETING_VERSION)   # 引用 build setting，由 MARKETING_VERSION 注入（project.yml 顶部 settings.base）
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)        # 引用 build setting，由 CURRENT_PROJECT_VERSION 注入
+        LSUIElement: true            # ★ menu bar app 必需：accessory 模式，不在 Dock 显示、无主窗口
+        LSMinimumSystemVersion: "13.0"
+        NSAppleEventsUsageDescription: "VibeBoard 需要发送 Apple 事件以执行 cmd 动作与按键模拟。"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ethereal49.VibeBoard

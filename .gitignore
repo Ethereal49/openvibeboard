@@ -13,6 +13,14 @@ env/
 # macOS
 .DS_Store
 
+# Xcode / Swift（.xcodeproj 由 xcodegen generate 从 project.yml 生成，不入库）
+VibeBoard.xcodeproj/
+VibeBoard.xcworkspace/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+build/
+
 # IDE / 编辑器
 .vscode/
 .idea/
