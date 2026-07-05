@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- 阶段 B：sandboxed app 访问 /dev/cu.* 串口设备的必需 entitlement。
+	     来源：ORSSerialPort 作者本人在 issue #10/#156/#171 与官方 wiki 的明确答复。
+	     不需要 device.usb（CDC-ACM 串口走 fd 路径，不经 USB 栈），不需要临时例外。 -->
+	<key>com.apple.security.device.serial</key>
+	<true/>
+</dict>
+</plist>

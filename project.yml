@@ -4,15 +4,15 @@ options:
   deploymentTarget:
     macOS: "13.0"
   developmentLanguage: zh-Hans
+packages:                                    # 阶段 B：ORSSerialPort SPM 远程依赖
+  ORSSerialPort:
+    url: https://github.com/armadsen/ORSSerialPort.git
+    from: "2.1.0"                            # 最新稳定 tag = 2.1.0（2019-06-13）；不要写更高版本，不存在
 settings:
   base:
     MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
-    SWIFT_VERSION: "5.0"   # 先用 Swift 5 mode，避免 Swift 6 并发严格性踩坑
-    # 让 Application Support 写入 / 进程权限等行为可预测
-    CODE_SIGN_IDENTITY: "-"
-    CODE_SIGNING_REQUIRED: NO
-    CODE_SIGNING_ALLOWED: NO
+    SWIFT_VERSION: "5.0"   # 先用 Swift 5 mode，避免 ORSSerialPort 无 Sendable 标注的 Swift 6 strict concurrency 警告
 targets:
   VibeBoard:
     type: application
@@ -20,6 +20,9 @@ targets:
     deploymentTarget: "13.0"
     sources:
       - path: VibeBoard
+    dependencies:                            # 阶段 B：target 依赖 ORSSerialPort
+      - package: ORSSerialPort
+        product: ORSSerial                   # ★ product 名是 ORSSerial，不是 ORSSerialPort（极易写错）
     info:
       path: VibeBoard/Info.plist
       properties:
@@ -32,3 +35,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ethereal49.VibeBoard
+        # 阶段 B：串口 entitlement（com.apple.security.device.serial）要生效，
+        # 必须打开签名（ad-hoc "-" 即可，无需付费开发者账号），并显式声明 entitlements 文件。
+        # 阶段 A 关签名（CODE_SIGNING_REQUIRED=NO 等）仅为简化；阶段 B 引入 sandboxed 串口访问后必须翻转为 YES。
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: YES
+        CODE_SIGNING_ALLOWED: YES
+        CODE_SIGN_ENTITLEMENTS: VibeBoard/VibeBoard.entitlements
