@@ -32,7 +32,8 @@
 ### D. SwiftUI Settings 配置面板
 - `SettingsView`：Form 编辑按键映射，热生效。
 - 替代 index.html + HTTP server。
-- **验证**：设置面板改配置，物理键触发新动作。
+- **实测发现（2026-07-06）**：`NSApp.sendAction(Selector(("showSettingsWindow:")))` 在 macOS 26 返回 `true` 但**不打开** Settings 窗口（NSApp.windows 只剩 36×30 状态栏图标窗口）。Apple 已弃用该 selector 路径。改用 SwiftUI 官方 `@Environment(\.openSettings)`（macOS 14+）→ 实测打开 900×450 Settings 窗口（CGWindowList onscreen 确认）。**deployment target 因此从 13 提到 14**。
+- **验证**：✅ Settings 窗口打开（自动触发 + CGWindowList onscreen 双确认）；⏳ 物理键改配置热生效待用户实测。
 
 ### E. SMAppService 应用内自启
 - `LaunchAtLogin.swift`：register/unregister + 状态查询。

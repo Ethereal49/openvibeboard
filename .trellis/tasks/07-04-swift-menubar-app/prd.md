@@ -27,8 +27,8 @@
 
 ## 关键决策
 
-- **SwiftUI MenuBarExtra + Settings**（macOS 13+）。
-- **SMAppService**（macOS 13+）：应用内登录项，替代 launchd。最低部署 macOS 13。
+- **SwiftUI MenuBarExtra + Settings**（macOS 14+；阶段 D 实测发现 `showSettingsWindow:` selector 在 macOS 26 失效，改用 `@Environment(\.openSettings)`，deployment 13→14）。
+- **SMAppService**（macOS 14+）：应用内登录项，替代 launchd。最低部署 macOS 14（用户系统 macOS 26，13 无意义）。
 - **ORSSerialPort**（SPM 第三方库）：替代 pyserial。备选 IOKit。
 - **CGEvent 原生**：CoreGraphics 直接调；现有 flags 坑用 Swift 逐行复刻。
 - **text 动作**：NSPasteboard + Cmd+V，复刻剪贴板绕输入法方案。

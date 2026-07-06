@@ -6,6 +6,7 @@
 //
 //  阶段 B：菜单显示串口连接状态 + 最近一次按键事件，让监听可观测、可实测。
 //  阶段 C：菜单显示 Accessibility 授权状态（未授权时红色提示 + 一键重试弹窗）。
+//  阶段 D：加「打开设置…」项，调起 SwiftUI Settings 场景窗口。
 //
 
 import SwiftUI
@@ -13,6 +14,7 @@ import SwiftUI
 struct MenuBarView: View {
     @EnvironmentObject private var serial: SerialMonitor
     @EnvironmentObject private var dispatcher: ActionDispatcher
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         // 阶段 C：Accessibility 授权状态（CGEvent 注入的唯一前置）。
@@ -54,8 +56,18 @@ struct MenuBarView: View {
 
         Divider()
 
+        // 阶段 D：打开 Settings 场景窗口。
+        // macOS 14+ 用 SwiftUI 官方的 EnvironmentValues.openSettings（SettingsLink 同源）。
+        // 实测：旧的 NSApp.sendAction(showSettingsWindow:) selector 在 macOS 26 上返回 true
+        // 但**不真正打开** Settings 窗口（仅创建状态栏图标窗口，非 Settings）——Apple 已弃用该路径。
+        // deployment target 因此从 13 提到 14（用户系统 macOS 26，13 无意义），用官方 openSettings。
+        Button("打开设置…") {
+            openSettings()
+        }
+        .keyboardShortcut(",")
+
         Button("关于 OpenVibeBoard") {
-            // 阶段 A 占位；阶段 D/E 接 NSApp.orderFrontStandardAboutPanel(nil)。
+            NSApp.orderFrontStandardAboutPanel(nil)
         }
 
         Divider()

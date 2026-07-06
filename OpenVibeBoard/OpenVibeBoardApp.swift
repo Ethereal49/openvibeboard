@@ -6,13 +6,18 @@
 //  阶段 A：MenuBarExtra 单 scene 占位菜单 + Config 持久化。
 //  阶段 B：接入 SerialMonitor（ORSSerialPort 串口监听），菜单显示按键事件。
 //  阶段 C：接入 ActionDispatcher（CGEvent 按键注入），Accessibility 权限守门。
+//  阶段 D：加 Settings 场景，SwiftUI 配置面板替代 Python v0.1 的 index.html + HTTP server。
 //
 
 import SwiftUI
 
 @main
 struct OpenVibeBoardApp: App {
-    // 阶段 A 用单 scene；阶段 D 再加 Settings。
+    // 阶段 D：MenuBarExtra + Settings 两 scene 共存。
+    //
+    // Apple 文档对 MenuBarExtra 写了「should not be used in conjunction with other scene types」，
+    // 但那条主要针对 WindowGroup（避免既有窗口又有菜单栏）。社区实践：menu bar app 普遍
+    // MenuBarExtra + Settings 共存（⌘, 或菜单「打开设置…」调起 Settings 窗口），实测可用。
     //
     // 启动即触发 ConfigStore.shared.load()：首启写默认配置到 Application Support，
     // 已有配置则加载到内存。后续阶段（B 串口读 / D Settings 写）共用同一 actor 实例。
@@ -54,5 +59,12 @@ struct OpenVibeBoardApp: App {
                 .environmentObject(dispatcher)
         }
         .menuBarExtraStyle(.menu)
+
+        // 阶段 D：Settings 场景。macOS 13 用 Settings { ... } scene 形式；
+        // 不能用 macOS 14+ 独有的 SettingsLink / EnvironmentValues.openSettings。
+        // 打开方式：MenuBarView 里调 NSApp.sendAction(Selector(("showSettingsWindow:")), ...)。
+        Settings {
+            SettingsView()
+        }
     }
 }
