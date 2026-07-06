@@ -1,6 +1,6 @@
 //
 //  Config.swift
-//  VibeBoard
+//  OpenVibeBoard
 //
 //  配置模型 + Application Support 持久化。
 //
@@ -53,14 +53,14 @@ private let defaultConfig: Config = [
 
 // MARK: - 持久化路径
 
-/// 配置文件：~/Library/Application Support/VibeBoard/config.json
+/// 配置文件：~/Library/Application Support/OpenVibeBoard/config.json
 private let configURL: URL = {
     let appSupport = FileManager.default
         .urls(for: .applicationSupportDirectory, in: .userDomainMask)
         .first
         ?? URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent("Library/Application Support", isDirectory: true)
-    let dir = appSupport.appendingPathComponent("VibeBoard", isDirectory: true)
+    let dir = appSupport.appendingPathComponent("OpenVibeBoard", isDirectory: true)
     return dir.appendingPathComponent("config.json")
 }()
 

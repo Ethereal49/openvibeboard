@@ -2,7 +2,7 @@
 
 ## Goal
 
-把 VibeBoard 从 Python 守护进程**重写为 Swift/SwiftUI 原生 macOS menu bar 应用**：`MenuBarExtra` 状态栏、CGEvent 原生按键注入、ORSSerialPort 串口监听、SwiftUI Settings 配置面板、`SMAppService` 应用内管理开机自启、XCTest 测试。现有 Python 实现（`vibe_control.py` / `index.html`）作为逻辑参考，重写后归档。
+把 OpenVibeBoard 从 Python 守护进程**重写为 Swift/SwiftUI 原生 macOS menu bar 应用**：`MenuBarExtra` 状态栏、CGEvent 原生按键注入、ORSSerialPort 串口监听、SwiftUI Settings 配置面板、`SMAppService` 应用内管理开机自启、XCTest 测试。现有 Python 实现（`vibe_control.py` / `index.html`）作为逻辑参考，重写后归档。
 
 ## Requirements
 
@@ -14,12 +14,12 @@
 
 ### R2. 应用内自启
 - `SMAppService.mainApp.register()/unregister()`，菜单加「开机启动」开关。
-- 用户在「系统设置 → 通用 → 登录项」看到 VibeBoard，系统级管理。
+- 用户在「系统设置 → 通用 → 登录项」看到 OpenVibeBoard，系统级管理。
 - **不写** launchd plist / 外部脚本。
 
 ### R3. SwiftUI Settings 配置面板（替代 Web UI）
 - `Settings { ... }` 场景，原生表单编辑按键映射。
-- Codable JSON 持久化到 `~/Library/Application Support/VibeBoard/config.json`。
+- Codable JSON 持久化到 `~/Library/Application Support/OpenVibeBoard/config.json`。
 - index.html + HTTP server **废弃**。
 
 ### R4. XCTest 测试
@@ -32,10 +32,11 @@
 - **ORSSerialPort**（SPM 第三方库）：替代 pyserial。备选 IOKit。
 - **CGEvent 原生**：CoreGraphics 直接调；现有 flags 坑用 Swift 逐行复刻。
 - **text 动作**：NSPasteboard + Cmd+V，复刻剪贴板绕输入法方案。
-- **config.json**：迁到 `~/Library/Application Support/VibeBoard/`。
+- **config.json**：迁到 `~/Library/Application Support/OpenVibeBoard/`。
 - **Web UI 废弃**：SwiftUI Settings 替代，HTTP server/index.html 不再需要。
 - **构建**：Xcode 项目（生成 .app 最直接）。
 - **Python 资产**：`vibe_control.py` / `index.html` / `pyproject.toml` / uv / Python spec **归档**到 `archive/python-v0.1/` 或 `python-legacy` 分支（git 历史完整保留），作 Swift 重写的逻辑参考。
+- **改名 OpenVibeBoard（阶段 C 实测发现）**：原项目名 VibeBoard 与已有 app `app.vibeboard.mac`（`/Applications/VibeBoard.app`，TeamID 3W2AKHD5H2，v0.5.4，与我们无关）撞车，导致 Accessibility TCC 授权混淆 + 用户认知冲突。仓库名已是 openvibeboard，v0.2.0 起产品名 / bundle id（`com.ethereal49.OpenVibeBoard`）/ 目录 / 类型名统一改名。白名单不动：`vibe_control.py`（阶段 G 归档）、README/CHANGELOG/CONTRIBUTING（阶段 G 统一）。
 
 ## 风险
 
@@ -47,7 +48,7 @@
 
 ## Acceptance Criteria
 
-- [ ] Xcode 构建出 `VibeBoard.app`，双击运行出状态栏图标。
+- [ ] Xcode 构建出 `OpenVibeBoard.app`，双击运行出状态栏图标。
 - [ ] 菜单：状态、设置、开机启动开关、退出。
 - [ ] 串口监听 + 四种动作（cmd / key tap / key hold / text）实测通过。
 - [ ] Settings 面板编辑配置热生效。

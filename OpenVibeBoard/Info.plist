@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>VibeBoard</string>
+	<string>OpenVibeBoard</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,6 +25,6 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>VibeBoard 需要发送 Apple 事件以执行 cmd 动作与按键模拟。</string>
+	<string>OpenVibeBoard 需要发送 Apple 事件以执行 cmd 动作与按键模拟。</string>
 </dict>
 </plist>

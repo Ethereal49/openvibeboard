@@ -16,7 +16,14 @@
 - context7 查 ORSSerialPort。
 - **验证**：跑 .app，按物理键，菜单/日志显示按键事件。
 
-### C. CGEvent 按键注入（核心硬门）
+### C0. 改名 OpenVibeBoard（阶段 C 实测前置，✅ 已完成）
+- 撞车发现：`/Applications/VibeBoard.app` 是别人家的 app（`app.vibeboard.mac`，TeamID 3W2AKHD5H2，v0.5.4），Accessibility TCC 授权混淆。
+- 改名范围：目录 `VibeBoard/`→`OpenVibeBoard/`、`struct VibeBoardApp`→`OpenVibeBoardApp`、bundle id `com.ethereal49.OpenVibeBoard`、PRODUCT_NAME / display name / entitlements / Application Support 目录。
+- 白名单不动：`vibe_control.py` / README / CHANGELOG / CONTRIBUTING。
+- 主会话裁决（规则 7）：tap 也走 CGEvent（合并注入路径，spec 意图"按 mode 二选一"仍满足，字面"tap 走 osascript"是 Python 历史包袱，留阶段 G 修订 spec）。
+- 验证：构建 + 阶段 A/B 串口回归通过。
+
+### C. CGEvent 按键注入（核心硬门，✅ 已完成，实测门通过）
 - `KeyEvent.swift`：tap + hold（`CGEventSetFlags` 挂 modifier，复刻 Python `hold_down`）。
 - `ActionDispatcher`：cmd→Process, key→tap/hold, text→NSPasteboard+Cmd+V。
 - **对照 Python `vibe_control.py` 逐行复刻 flags 坑**。

@@ -1,4 +1,4 @@
-name: VibeBoard
+name: OpenVibeBoard
 options:
   bundleIdPrefix: com.ethereal49
   deploymentTarget:
@@ -14,31 +14,31 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"   # 先用 Swift 5 mode，避免 ORSSerialPort 无 Sendable 标注的 Swift 6 strict concurrency 警告
 targets:
-  VibeBoard:
+  OpenVibeBoard:
     type: application
     platform: macOS
     deploymentTarget: "13.0"
     sources:
-      - path: VibeBoard
+      - path: OpenVibeBoard
     dependencies:                            # 阶段 B：target 依赖 ORSSerialPort
       - package: ORSSerialPort
         product: ORSSerial                   # ★ product 名是 ORSSerial，不是 ORSSerialPort（极易写错）
     info:
-      path: VibeBoard/Info.plist
+      path: OpenVibeBoard/Info.plist
       properties:
-        CFBundleDisplayName: VibeBoard
+        CFBundleDisplayName: OpenVibeBoard
         CFBundleShortVersionString: $(MARKETING_VERSION)   # 引用 build setting，由 MARKETING_VERSION 注入（project.yml 顶部 settings.base）
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)        # 引用 build setting，由 CURRENT_PROJECT_VERSION 注入
         LSUIElement: true            # ★ menu bar app 必需：accessory 模式，不在 Dock 显示、无主窗口
         LSMinimumSystemVersion: "13.0"
-        NSAppleEventsUsageDescription: "VibeBoard 需要发送 Apple 事件以执行 cmd 动作与按键模拟。"
+        NSAppleEventsUsageDescription: "OpenVibeBoard 需要发送 Apple 事件以执行 cmd 动作与按键模拟。"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.ethereal49.VibeBoard
+        PRODUCT_BUNDLE_IDENTIFIER: com.ethereal49.OpenVibeBoard
         # 阶段 B：串口 entitlement（com.apple.security.device.serial）要生效，
         # 必须打开签名（ad-hoc "-" 即可，无需付费开发者账号），并显式声明 entitlements 文件。
         # 阶段 A 关签名（CODE_SIGNING_REQUIRED=NO 等）仅为简化；阶段 B 引入 sandboxed 串口访问后必须翻转为 YES。
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGNING_REQUIRED: YES
         CODE_SIGNING_ALLOWED: YES
-        CODE_SIGN_ENTITLEMENTS: VibeBoard/VibeBoard.entitlements
+        CODE_SIGN_ENTITLEMENTS: OpenVibeBoard/OpenVibeBoard.entitlements

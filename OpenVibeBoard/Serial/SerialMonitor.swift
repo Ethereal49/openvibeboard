@@ -1,6 +1,6 @@
 //
 //  SerialMonitor.swift
-//  VibeBoard
+//  OpenVibeBoard
 //
 //  阶段 B：串口监听（ORSSerialPort）。
 //
@@ -229,7 +229,7 @@ extension SerialMonitor {
     // open() 失败 / read 出错 / ioctl 出错都走这里（NSPOSIXErrorDomain）。
     // 错误码语义：
     //   EPERM(1)  → entitlement 缺（com.apple.security.device.serial 没加 / sandbox 未签名）
-    //   EBUSY(16) → 端口被占（VibeBoard Python 客户端 / 其他进程开着）→ 等会儿重试
+    //   EBUSY(16) → 端口被占（旧版 Python 客户端 vibe_control.py / 其他进程开着）→ 等会儿重试
     //   ENXIO(6)  → 设备已拔，serialPortWasRemovedFromSystem 也会来
     //   ENOENT(2) → 路径不存在
     @objc func serialPort(_ serialPort: ORSSerialPort, didEncounterError error: Error) {
