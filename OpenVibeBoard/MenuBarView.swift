@@ -7,6 +7,7 @@
 //  阶段 B：菜单显示串口连接状态 + 最近一次按键事件，让监听可观测、可实测。
 //  阶段 C：菜单显示 Accessibility 授权状态（未授权时红色提示 + 一键重试弹窗）。
 //  阶段 D：加「打开设置…」项，调起 SwiftUI Settings 场景窗口。
+//  阶段 E：加「开机自启」Toggle，调 SMAppService 注册/取消登录项。
 //
 
 import SwiftUI
@@ -55,6 +56,17 @@ struct MenuBarView: View {
         }
 
         Divider()
+
+        // 阶段 E：开机自启 Toggle（SMAppService）。
+        // 用 computed binding：getter 每次菜单 render 时查 SMAppService.mainApp.status，
+        // 不缓存（用户可能在「系统设置 → 登录项」改过，缓存会显示陈旧勾选态）。
+        // setter 走 LaunchAtLogin.toggle()，再据返回值刷新。
+        Toggle("开机自启", isOn: Binding(
+            get: { LaunchAtLogin.isEnabled },
+            set: { _ in
+                _ = LaunchAtLogin.toggle()
+            }
+        ))
 
         // 阶段 D：打开 Settings 场景窗口。
         // macOS 14+ 用 SwiftUI 官方的 EnvironmentValues.openSettings（SettingsLink 同源）。

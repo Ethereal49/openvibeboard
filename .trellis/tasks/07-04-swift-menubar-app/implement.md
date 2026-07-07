@@ -33,13 +33,14 @@
 - `SettingsView`：Form 编辑按键映射，热生效。
 - 替代 index.html + HTTP server。
 - **实测发现（2026-07-06）**：`NSApp.sendAction(Selector(("showSettingsWindow:")))` 在 macOS 26 返回 `true` 但**不打开** Settings 窗口（NSApp.windows 只剩 36×30 状态栏图标窗口）。Apple 已弃用该 selector 路径。改用 SwiftUI 官方 `@Environment(\.openSettings)`（macOS 14+）→ 实测打开 900×450 Settings 窗口（CGWindowList onscreen 确认）。**deployment target 因此从 13 提到 14**。
-- **验证**：✅ Settings 窗口打开（自动触发 + CGWindowList onscreen 双确认）；⏳ 物理键改配置热生效待用户实测。
+- **验证**：✅ Settings 窗口打开（自动触发 + CGWindowList onscreen 双确认）；✅ 物理键改配置热生效实测通过（2026-07-06）。
 
-### E. SMAppService 应用内自启
-- `LaunchAtLogin.swift`：register/unregister + 状态查询。
-- 菜单 Toggle。
-- context7 查 `SMAppService`。
-- **验证**：勾选 → 注销重登 → 自启。
+### E. SMAppService 应用内自启（✅ 已完成，实测门通过）
+- `LaunchAtLogin.swift`：`SMAppService.mainApp` register/unregister + 状态查询（enum + 静态方法，对齐 `Permissions/Accessibility.swift` 风格）。
+- 菜单 Toggle（computed `Binding`，getter 每次重读 `status` 不缓存，用户在系统设置改过也同步）。
+- context7 查 `SMAppService`（API + Status 枚举 + 6 个坑见 `research/smappservice-launch-at-login.md`）。
+- **验证**：✅ 勾选 → 系统设置「登录项」出现 OpenVibeBoard；✅ 注销重登 → 自启（2026-07-07）。
+- **构建坑（重要，F 阶段也会踩）**：Xcode 16 **Debug Dylib Support**（`ENABLE_DEBUG_DYLIB`）—— Debug 构建把项目代码全编进 `OpenVibeBoard.debug.dylib`，主 `Contents/MacOS/OpenVibeBoard` 只是 ~57KB launcher stub。**验证符号要 `nm .debug.dylib`，nm 主二进制会误判「代码没编进去」**（实测踩过）。Release 构建无此机制，产出单体二进制。
 
 ### F. XCTest 测试
 - Config/KeyCodes/Protocol/ActionDispatcher tests。
