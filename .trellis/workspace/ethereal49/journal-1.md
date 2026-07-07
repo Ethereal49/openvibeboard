@@ -5,3 +5,38 @@
 
 ---
 
+
+
+## Session 1: v0.2.0 阶段 G 收尾：Python 归档 + 文档/spec 切 Swift
+
+**Date**: 2026-07-08
+**Task**: v0.2.0 阶段 G 收尾：Python 归档 + 文档/spec 切 Swift
+**Branch**: `master`
+
+### Summary
+
+G(1) e6b25ad: Python v0.1 归档至 archive/python-v0.1/ + README/CHANGELOG/CONTRIBUTING 切 Swift 主体；G(2) 9bf2b91: .trellis/spec backend index+4 文件 Python→Swift 重写（保留 CGEvent flags 坑/Config schema/actor 并发/串口错误码）+ frontend/ 删除；01af26d: 补 .agents 平台 trellis hook。A-G 七阶段 + Settings 改进全部闭环，已 push。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e6b25ad` | (see git log) |
+| `9bf2b91` | (see git log) |
+| `01af26d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
