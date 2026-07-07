@@ -42,7 +42,7 @@ typealias Config = [String: KeyConfig]
 
 /// 首启默认配置。
 ///
-/// 移植 Python v0.1 config.json 的 4 个键（仓库根 config.json）。
+/// 移植 Python v0.1 config.json 的 4 个键（v0.1 已归档至 archive/python-v0.1/config.json）。
 /// 阶段 C 后随 CGEvent/keycode 实现成熟再对齐细节（如 k4 的 hold modifier flags）。
 ///
 /// 阶段 F：默认访问级别（internal），让 test target（依赖 OpenVibeBoard）可直接断言，
