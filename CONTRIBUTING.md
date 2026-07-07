@@ -17,12 +17,12 @@ open OpenVibeBoard.xcodeproj                 # Xcode 里 ⌘R 运行
 
 本项目用 Trellis 管理开发流程，**编码约定的唯一事实来源是 `.trellis/spec/`**：
 
-- [`backend/`](.trellis/spec/backend/) —— Swift app 约定（CGEvent modifier flag 坑、串口协议、Config schema、actor 并发）> 注：v0.2.0 重写后 spec 正从 Python 守护进程约定迁移到 Swift 约定，遇到仍描述 Python 的条目以 `archive/python-v0.1/` 代码与 Swift 源码为准
+- [`backend/`](.trellis/spec/backend/) —— Swift app 约定（CGEvent modifier flag 坑、串口协议、Config schema、actor 并发、串口错误码、stderr 日志）
 - [`guides/`](.trellis/spec/guides/) —— 通用思考指南（语言无关）
 
 改代码前先读对应 spec。**约定优先于个人偏好**；若认为某约定有害，先开 issue 讨论，不要偷偷另搞一套。
 
-> v0.1 的 `frontend/`（Web UI）约定已随 Swift 重写作废——配置 UI 改为 SwiftUI Settings。
+> v0.1 的 Web UI 约定已弃（SwiftUI Settings 替代），`frontend/` 目录已删除。
 
 ## 提交规范
 
