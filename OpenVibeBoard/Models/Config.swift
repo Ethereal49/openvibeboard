@@ -44,7 +44,10 @@ typealias Config = [String: KeyConfig]
 ///
 /// 移植 Python v0.1 config.json 的 4 个键（仓库根 config.json）。
 /// 阶段 C 后随 CGEvent/keycode 实现成熟再对齐细节（如 k4 的 hold modifier flags）。
-private let defaultConfig: Config = [
+///
+/// 阶段 F：默认访问级别（internal），让 test target（依赖 OpenVibeBoard）可直接断言，
+/// 守护 Python 迁移意图——4 个键存在 + 各自 type/value/mode 正确。
+let defaultConfig: Config = [
     "k1": KeyConfig(type: "cmd",  value: "open -a Codex", mode: "tap",  enter: nil, desc: "打开 Codex"),
     "k2": KeyConfig(type: "text", value: "继续",           mode: nil,   enter: true, desc: "输入'继续'并回车"),
     "k3": KeyConfig(type: "key",  value: "ctrl+c",         mode: "tap",  enter: nil, desc: "Ctrl+C"),
@@ -54,7 +57,10 @@ private let defaultConfig: Config = [
 // MARK: - 持久化路径
 
 /// 配置文件：~/Library/Application Support/OpenVibeBoard/config.json
-private let configURL: URL = {
+///
+/// fileprivate（不是 private）：ConfigStore.init(url:) 默认参数要用它，但对外不暴露。
+/// 阶段 F：测试用临时目录 URL 注入，不污染真实配置。
+fileprivate let configURL: URL = {
     let appSupport = FileManager.default
         .urls(for: .applicationSupportDirectory, in: .userDomainMask)
         .first
@@ -77,15 +83,24 @@ actor ConfigStore {
     /// 经 actor 串行化保证读写不竞争。
     static let shared = ConfigStore()
 
+    /// 阶段 F：可注入的存储 URL。
+    /// 生产用默认 `configURL`（保持现状）；测试注入临时目录 URL，不污染真实配置。
+    private let url: URL
+
     private var config: Config = [:]
     private var didLoad = false
+
+    /// 阶段 F：参数默认值用 fileprivate 的 configURL，shared 单例行为不变。
+    init(url: URL = configURL) {
+        self.url = url
+    }
 
     /// 加载或首启写默认。返回加载后的配置快照。
     /// 幂等：多次调用只有第一次真正读盘/写默认。
     func load() -> Config {
         if didLoad { return config }
         didLoad = true
-        if let data = try? Data(contentsOf: configURL),
+        if let data = try? Data(contentsOf: url),
            let decoded = try? JSONDecoder().decode(Config.self, from: data) {
             config = decoded
             return config
@@ -110,7 +125,7 @@ actor ConfigStore {
     /// 原子落盘：先确保目录存在，再 .atomic 写。
     /// ensure_ascii=false / indent=2 对齐 Python json.dump(..., ensure_ascii=False, indent=2)。
     private func persist() {
-        let dir = configURL.deletingLastPathComponent()
+        let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         let encoder = JSONEncoder()
@@ -118,6 +133,6 @@ actor ConfigStore {
         guard let data = try? encoder.encode(config) else { return }
 
         // FileManager.atomic 等价于 Python 的临时文件 + rename，避免半写状态。
-        try? data.write(to: configURL, options: [.atomic])
+        try? data.write(to: url, options: [.atomic])
     }
 }

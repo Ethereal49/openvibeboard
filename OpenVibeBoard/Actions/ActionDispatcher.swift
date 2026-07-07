@@ -29,6 +29,22 @@ import Combine
 import CoreGraphics
 import Foundation
 
+// MARK: - 分发动作（阶段 F：纯数据，Equatable 可断言）
+
+/// 把"决定做什么"和"怎么做"（KeyInjector/CmdRunner/TextInjector + DispatchQueue）解耦。
+/// decideAction 是纯函数产出 Action，副作用全在 fireDown/fireUp 里。
+///
+/// 放在 file 顶层（不嵌在 @MainActor 类里）：Action 是纯数据，可被 nonisolated 上下文
+/// （测试）直接构造/比较，不受 main actor 隔离约束。
+enum Action: Equatable {
+    case runCmd(String)
+    case injectText(String, enter: Bool)
+    case tapKey(virtualKey: CGKeyCode, modifiers: CGEventFlags)
+    case pressKey(virtualKey: CGKeyCode, modifiers: CGEventFlags)
+    case releaseKey(virtualKey: CGKeyCode)
+    case ignore
+}
+
 @MainActor
 final class ActionDispatcher: ObservableObject {
 
@@ -59,10 +75,9 @@ final class ActionDispatcher: ObservableObject {
         let cfg = await config.snapshot()[event.button]
         guard let cfg = cfg else { return }
 
-        let desc = cfg.desc ?? cfg.value
-
         // Accessibility 守门：未授权则 log + 提示，不发任何 CGEvent
         // （未授权时 CGEvent.post 不抛错但目标 app 收不到事件，所以先检查避免无效操作）
+        // 阶段 F：守门留在 handle，**未授权不进 decideAction**（纯函数只负责分发，不负责权限）。
         guard Accessibility.isTrusted else {
             lastDeniedAt = Date()
             ActionDispatcher.log("⚠️ 未授权辅助功能，\(event.button) \(event.pressed ? "▼" : "▲") 已忽略")
@@ -71,77 +86,105 @@ final class ActionDispatcher: ObservableObject {
 
         // down/up 都进入，分支内部按 pressed + cfg.type/mode 决定
         if event.pressed {
-            await fireDown(button: event.button, cfg: cfg, desc: desc)
+            await fireDown(button: event.button, cfg: cfg)
         } else {
             await fireUp(button: event.button, cfg: cfg)
         }
     }
 
+    // MARK: - 决策层（阶段 F：纯函数，可测）
+
+    /// 纯函数：根据 cfg + pressed 决定做什么（含 parseKey）。
+    ///
+    /// 对照 Python fire_down（:175-197）/ fire_up（:199-206）的分支语义，但只产出数据，
+    /// 不触任何副作用（不查 ConfigStore、不发 CGEvent、不开 Process、不写 log）。
+    ///
+    /// `nonisolated static`：ActionDispatcher 是 @MainActor，但 decideAction 只读入参 cfg +
+    /// 调纯函数 KeyInjector.parseKey，不触任何 main actor 状态。标 nonisolated 让测试在
+    /// nonisolated 上下文直接调，无需实例化 ActionDispatcher（避开 ConfigStore/SerialMonitor 单例依赖）。
+    /// 行为对齐 C 阶段实测门（k1 cmd / k2 text / k3 tap / k4 hold）——重构只动可测性。
+    nonisolated static func decideAction(cfg: KeyConfig, pressed: Bool) -> Action {
+        if pressed {
+            switch cfg.type {
+            case "cmd":
+                // 对应 Python run_cmd（:106-108）：subprocess.Popen 非阻塞
+                return .runCmd(cfg.value)
+            case "text":
+                // 对应 Python send_text（:131-141）：pbcopy + Cmd+V + 可选 enter
+                // enter 缺省 true（对齐 Python send_text 默认行为）
+                return .injectText(cfg.value, enter: cfg.enter ?? true)
+            case "key":
+                // 对应 Python fire_down 的 key 分支（:187-196）
+                guard let parsed = KeyInjector.parseKey(cfg.value) else { return .ignore }
+                switch cfg.mode {
+                case "hold":
+                    return .pressKey(virtualKey: parsed.virtualKey, modifiers: parsed.modifiers)
+                default:  // "tap" 或未指定
+                    return .tapKey(virtualKey: parsed.virtualKey, modifiers: parsed.modifiers)
+                }
+            default:
+                return .ignore
+            }
+        } else {
+            // 对应 Python fire_up：只有 key+hold 才需要在 up 时做事（release）。
+            // 其他类型 up 是 no-op（Python 同样如此）。
+            guard cfg.type == "key", cfg.mode == "hold" else { return .ignore }
+            guard let parsed = KeyInjector.parseKey(cfg.value) else { return .ignore }
+            return .releaseKey(virtualKey: parsed.virtualKey)
+        }
+    }
+
     // MARK: - fire_down（对照 Python vibe_control.py:175-197）
 
-    private func fireDown(button: String, cfg: KeyConfig, desc: String) async {
-        switch cfg.type {
-        case "cmd":
-            // 对应 Python run_cmd（:106-108）：subprocess.Popen 非阻塞
+    /// 阶段 F：纯决策已抽到 decideAction，这里只剩"决策 + 执行副作用"。
+    /// log 路径对齐 C 阶段实测门（k1/k2/k3/k4 的日志文案不变）。
+    private func fireDown(button: String, cfg: KeyConfig) async {
+        let desc = cfg.desc ?? cfg.value
+        switch ActionDispatcher.decideAction(cfg: cfg, pressed: true) {
+        case .runCmd(let value):
+            // k1 实测门：cmd → CmdRunner.run（subprocess.Popen 非阻塞）
             ActionDispatcher.log("\(button) -> \(desc)")
-            let value = cfg.value
             DispatchQueue.global(qos: .userInitiated).async {
                 CmdRunner.run(value)
             }
-
-        case "text":
-            // 对应 Python send_text（:131-141）：pbcopy + Cmd+V + 可选 enter
+        case .injectText(let value, let enter):
+            // k2 实测门：text → 剪贴板 + Cmd+V + 可选 Enter
             ActionDispatcher.log("\(button) -> 输入文本 \(desc)")
-            let value = cfg.value
-            let enter = cfg.enter ?? true
             DispatchQueue.global(qos: .userInitiated).async {
                 TextInjector.inject(value, enter: enter)
             }
-
-        case "key":
-            // 对应 Python fire_down 的 key 分支（:187-196）
-            switch cfg.mode {
-            case "hold":
-                let value = cfg.value
-                ActionDispatcher.log("\(button) ▼ 按住 \(value)")
-                DispatchQueue.global(qos: .userInitiated).async {
-                    guard let parsed = KeyInjector.parseKey(value) else {
-                        ActionDispatcher.log("⚠️ 无法解析 key: \(value)")
-                        return
-                    }
-                    KeyInjector.press(virtualKey: parsed.virtualKey, modifiers: parsed.modifiers)
-                }
-            default:  // "tap" 或未指定
-                let value = cfg.value
-                ActionDispatcher.log("\(button) -> \(desc)")
-                DispatchQueue.global(qos: .userInitiated).async {
-                    guard let parsed = KeyInjector.parseKey(value) else {
-                        ActionDispatcher.log("⚠️ 无法解析 key: \(value)")
-                        return
-                    }
-                    KeyInjector.tap(virtualKey: parsed.virtualKey, modifiers: parsed.modifiers)
-                }
+        case .pressKey(let vk, let mods):
+            // k4 实测门（hold 按下）：KeyInjector.press，flag 挂 keydown
+            ActionDispatcher.log("\(button) ▼ 按住 \(cfg.value)")
+            DispatchQueue.global(qos: .userInitiated).async {
+                KeyInjector.press(virtualKey: vk, modifiers: mods)
             }
-
-        default:
-            ActionDispatcher.log("⚠️ 未知 type: \(cfg.type)")
+        case .tapKey(let vk, let mods):
+            // k3 实测门（tap）：KeyInjector.tap（keydown 立即 keyup）
+            ActionDispatcher.log("\(button) -> \(desc)")
+            DispatchQueue.global(qos: .userInitiated).async {
+                KeyInjector.tap(virtualKey: vk, modifiers: mods)
+            }
+        case .releaseKey, .ignore:
+            // down 路径不会产 release；ignore（parseKey nil / 未知 type）对齐原"未知 type"日志语义
+            ActionDispatcher.log("⚠️ 无法解析 key 或未知 type: \(cfg.type) \(cfg.value)")
         }
     }
 
     // MARK: - fire_up（对照 Python vibe_control.py:199-206）
 
-    /// 对应 Python fire_up：只有 key+hold 才需要在 up 时做事（release）。
-    /// 其他类型 up 是 no-op（Python 同样如此）。
+    /// 阶段 F：纯决策已抽到 decideAction，这里只剩"决策 + 执行副作用"。
     private func fireUp(button: String, cfg: KeyConfig) async {
-        guard cfg.type == "key", cfg.mode == "hold" else { return }
-        let value = cfg.value
-        ActionDispatcher.log("\(button) ▲ 释放")
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let parsed = KeyInjector.parseKey(value) else {
-                ActionDispatcher.log("⚠️ 无法解析 key: \(value)")
-                return
+        switch ActionDispatcher.decideAction(cfg: cfg, pressed: false) {
+        case .releaseKey(let vk):
+            // k4 实测门（hold 松开）：KeyInjector.release，不带 flag
+            ActionDispatcher.log("\(button) ▲ 释放")
+            DispatchQueue.global(qos: .userInitiated).async {
+                KeyInjector.release(virtualKey: vk)
             }
-            KeyInjector.release(virtualKey: parsed.virtualKey)
+        case .runCmd, .injectText, .tapKey, .pressKey, .ignore:
+            // up 路径只会产 release 或 ignore；no-op
+            return
         }
     }
 

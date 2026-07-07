@@ -4,3 +4,4 @@
 {"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "log 格式与「何时记/不记什么」语义。Swift 用 os.Logger 复刻同样的事件记录边界。"}
 {"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "串口→协议解析→config 查询→动作分发→CGEvent/Process/剪贴板 是典型跨层数据流；重写时按指南检查层间数据格式与职责边界。"}
 {"file": ".trellis/tasks/07-04-swift-menubar-app/research/menubar-extra-and-scaffold.md", "reason": "阶段 A 起步研究：MenuBarExtra API（context7 查证）+ xcodegen 项目骨架方案（project.yml 模板）+ LSUIElement 等 menu bar app 关键 plist key + Config.swift Codable 草案 + 构建验收命令。后续 SwiftUI 相关阶段（D Settings）也参考。"}
+{"file": ".trellis/tasks/07-04-swift-menubar-app/research/swift-testing.md", "reason": "阶段 F 测试研究：Swift Testing API（@Test/@Suite/#expect/参数化 arguments）+ xcodegen test target 配置 + 运行命令 + 可测性分析（纯逻辑直测 / ConfigStore 注入 URL + SerialMonitor.parseLine 抽纯函数小重构 / ActionDispatcher 抽 decideAction 纯函数 + Action 枚举重构方案 + 全分支测试表）。重构后测纯逻辑，不测副作用（实测门覆盖）。"}

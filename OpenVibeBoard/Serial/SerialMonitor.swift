@@ -49,13 +49,44 @@ final class SerialMonitor: NSObject, ObservableObject, ORSSerialPortDelegate {
     private static let reconnectDelay: TimeInterval = 5
 
     /// 同时吃 down/up，capture group 区分。对齐 Python DOWN_RE/UP_RE（vibe_control.py:81-82）。
-    private static let linePattern: NSRegularExpression = {
+    ///
+    /// `nonisolated`：NSRegularExpression 是 immutable 线程安全，构造一次全局共用。
+    /// 阶段 F：parseLine 是 nonisolated 纯函数，访问此 pattern 需它也 nonisolated。
+    nonisolated private static let linePattern: NSRegularExpression = {
         // 静态构造，避免每次匹配重编译。
         // pattern 与 ORSSerialPacketDescriptor 共用，delegate 里再用同一 pattern 提 capture group。
         // \d+ 容纳 k10+（固件理论上可多于 9 个键；Python 用 \d，此处宽松对齐未来）。
         // swiftlint:disable:next force_try
         return try! NSRegularExpression(pattern: "button (down|up) (k\\d+)")
     }()
+
+    /// 纯函数：把一行串口文本解析成 ButtonEvent（阶段 F 抽出，便于单测）。
+    ///
+    /// 抽离自 `serialPort(_:didReceivePacket:matchingDescriptor:)`：descriptor 只保证整包匹配
+    /// linePattern，不拆 capture group，所以仍需自己再 match 一次。把这段提取出来后：
+    ///   - delegate 改调它（行为不变）
+    ///   - 测试可覆盖 `"button down k3"` / `"button up k12"`（\d+ 容纳 k10+）/ 非法 / 缺数字
+    ///
+    /// `nonisolated`：虽然 SerialMonitor 是 @MainActor，parseLine 只读 static 正则 + 纯字符串操作，
+    /// 不触任何 main actor 状态，标 nonisolated 让测试在 nonisolated 上下文直接调，无需 async/await。
+    nonisolated static func parseLine(_ line: String) -> ButtonEvent? {
+        // 提 capture group（descriptor 不会把 group 拆开给你，要自己再 match 一次）。
+        let match = linePattern.firstMatch(
+            in: line,
+            range: NSRange(line.startIndex..., in: line)
+        )
+        guard let match = match, match.numberOfRanges >= 3 else { return nil }
+
+        guard
+            let pressedRange = Range(match.range(at: 1), in: line),
+            let buttonRange  = Range(match.range(at: 2), in: line)
+        else { return nil }
+
+        let pressed = line[pressedRange] == "down"
+        let button  = String(line[buttonRange])
+
+        return ButtonEvent(button: button, pressed: pressed)
+    }
 
     // MARK: - 状态
 
@@ -196,25 +227,12 @@ extension SerialMonitor {
         // packetData 形如 "button down k3"；descriptor 已保证匹配 linePattern。
         guard let line = String(data: packetData, encoding: .utf8) else { return }
 
-        // 提 capture group（descriptor 不会把 group 拆开给你，要自己再 match 一次）。
-        let match = SerialMonitor.linePattern.firstMatch(
-            in: line,
-            range: NSRange(line.startIndex..., in: line)
-        )
-        guard let match = match, match.numberOfRanges >= 3 else { return }
+        // 阶段 F：正则提取抽成纯函数 `parseLine`（见上），这里只调一次，行为不变。
+        guard let event = SerialMonitor.parseLine(line) else { return }
 
-        guard
-            let pressedRange = Range(match.range(at: 1), in: line),
-            let buttonRange  = Range(match.range(at: 2), in: line)
-        else { return }
-
-        let pressed = line[pressedRange] == "down"
-        let button  = String(line[buttonRange])
-
-        let event = ButtonEvent(button: button, pressed: pressed)
         lastEvent = event
         buttonEvents.send(event)
-        log("\(button) \(pressed ? "▼ down" : "▲ up")")
+        log("\(event.button) \(event.pressed ? "▼ down" : "▲ up")")
     }
 
     // @required（ORSSerialPort.h:588）：USB-CDC 设备拔掉 / 断电时回调。

@@ -42,10 +42,14 @@
 - **验证**：✅ 勾选 → 系统设置「登录项」出现 OpenVibeBoard；✅ 注销重登 → 自启（2026-07-07）。
 - **构建坑（重要，F 阶段也会踩）**：Xcode 16 **Debug Dylib Support**（`ENABLE_DEBUG_DYLIB`）—— Debug 构建把项目代码全编进 `OpenVibeBoard.debug.dylib`，主 `Contents/MacOS/OpenVibeBoard` 只是 ~57KB launcher stub。**验证符号要 `nm .debug.dylib`，nm 主二进制会误判「代码没编进去」**（实测踩过）。Release 构建无此机制，产出单体二进制。
 
-### F. XCTest 测试
-- Config/KeyCodes/Protocol/ActionDispatcher tests。
-- mock CGEvent/Process/Serial。
-- **验证**：`xctest` 全绿。
+### F. Swift Testing 测试（✅ 已完成 2026-07-07；框架改 Swift Testing；用户拍板范围）
+- 范围（详见 `research/swift-testing.md`，含 API + 重构方案 + 全分支测试表）：
+  - **纯逻辑直测**：`KeyInjector.parseKey`（核心 flags 坑的纯侧，参数化）、`KeyConfig`/`Config` Codable（Python schema 兼容）、`defaultConfig`（守护 k1-k4 迁移意图）
+  - **小重构后测**：`ConfigStore`（注入 URL，默认值保持现状）、`SerialMonitor.parseLine`（从 delegate 抽纯函数）
+  - **重构 `ActionDispatcher`**：抽 `decideAction` 纯函数 + `Action` 枚举，`fireDown/fireUp` 改 decide→execute（**行为不变**，C 实测门仍是权威），参数化测全分支（type/mode/未知 type/parseKey nil/up 只对 hold）
+- **不测**（实测门已覆盖）：`KeyInjector.tap/press/release`、`CmdRunner`、`TextInjector`、`LaunchAtLogin`、`SerialMonitor` 端口/重连/delegate
+- xcodegen `project.yml` 加 `OpenVibeBoardTests` target（`bundle.unit-test`，Xcode 16+ 内置 Swift Testing）
+- **验证**：✅ `xcodebuild test` **30 tests / 5 suites 全绿**（2026-07-07，主会话独立复核，非 sub-agent 自报）。重构行为不变：`decideAction` 分支语义 1:1 对照原 `fireDown/fireUp`，`KeyInjector`/`CmdRunner`/`TextInjector` 调用未变，`parseKey` 由 `DispatchQueue.global` 移到 main actor（纯函数无影响），C 实测门仍是权威。F 无硬件实测门（纯测试），全绿即闭环。
 
 ### G. 文档 + Python 归档 + 提交
 - README/CHANGELOG 改 Swift（Xcode 构建/安装/权限主体变化）。
