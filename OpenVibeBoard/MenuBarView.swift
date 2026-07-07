@@ -75,6 +75,12 @@ struct MenuBarView: View {
         // deployment target 因此从 13 提到 14（用户系统 macOS 26，13 无意义），用官方 openSettings。
         Button("打开设置…") {
             openSettings()
+            // menu bar app (LSUIElement) 不在前台时，openSettings 会 orderFront Settings 窗口
+            // 但不抢焦点（窗口出现在其它 app 后面 / 不带前台激活）。
+            // NSApp.activate() 把本进程拉到前台，让 Settings 窗口真正可见可输入。
+            // macOS 14+ 无参版（deployment 14 ✓）；老 NSApplication.activate(ignoringOtherApps:)
+            // 已被无参 activate() 取代。
+            NSApp.activate()
         }
         .keyboardShortcut(",")
 

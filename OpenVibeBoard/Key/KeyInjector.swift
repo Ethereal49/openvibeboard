@@ -113,6 +113,72 @@ enum KeyInjector {
         return (CGKeyCode(vk), [])
     }
 
+    // MARK: - 反向：virtualKey + modifiers → 可读符号（Settings 预览用）
+
+    /// 把 (virtualKey, modifiers) 反向渲染成 macOS 习惯的可读符号串，如 `⌃C` / `⌥D` / `⎋` / `↩`。
+    ///
+    /// 与 `parseKey` 互为镜像：parse 正向（描述串 → virtualKey+flags），label 反向。
+    /// 放在 KeyInjector 同 enum 命名空间，复用 charKeyCode/specialKeyCode 的反向查表。
+    ///
+    /// 纯函数（无 IO / 无 actor），便于后续在 test target 直接断言（F 阶段测试风格）。
+    ///
+    /// modifier 顺序固定 ⌃⌥⇧⌘（系统偏好设置 → 键盘快捷键里的标准顺序），避免用户输入
+    /// `ctrl+shift` 与 `shift+ctrl` 渲染出不同串。单 modifier 场景（parseKey 当前限制）也兼容。
+    static func label(for virtualKey: CGKeyCode, modifiers: CGEventFlags) -> String {
+        var s = ""
+        // modifier 按系统标准顺序拼接
+        if modifiers.contains(.maskControl)  { s += "⌃" }
+        if modifiers.contains(.maskAlternate) { s += "⌥" }
+        if modifiers.contains(.maskShift)     { s += "⇧" }
+        if modifiers.contains(.maskCommand)   { s += "⌘" }
+        s += charSymbol(for: Int(virtualKey)) ?? "?"
+        return s
+    }
+
+    /// virtualKey → 可读字符/符号的反向映射（charKeyCode/specialKeyCode 的反向表）。
+    ///
+    /// 字母键大写显示（macOS 习惯：⌃C 而非 ⌃c），数字键原样，特殊键用 Unicode 符号。
+    /// 不识别的 vk 返回 nil（label 里降级为 "?"）。
+    ///
+    /// 反向表为什么手写而不复用 charKeyCode：charKeyCode 是 String→Int 单向，
+    /// 反向需要 Int→String，且字母要 uppercase、特殊键要符号（不是 "esc"/"return" 字面），
+    /// 语义不同，独立维护更清晰。
+    private static func charSymbol(for vk: Int) -> String? {
+        // 特殊键优先（kVK_Space 也属于这里）
+        if let sym = specialKeySymbol(vk) { return sym }
+        // 字母数字：用 kVK_ANSI_* 反向
+        let letterMap: [Int: String] = [
+            kVK_ANSI_A: "A", kVK_ANSI_S: "S", kVK_ANSI_D: "D", kVK_ANSI_F: "F",
+            kVK_ANSI_H: "H", kVK_ANSI_G: "G", kVK_ANSI_Z: "Z", kVK_ANSI_X: "X",
+            kVK_ANSI_C: "C", kVK_ANSI_V: "V", kVK_ANSI_B: "B", kVK_ANSI_Q: "Q",
+            kVK_ANSI_W: "W", kVK_ANSI_E: "E", kVK_ANSI_R: "R", kVK_ANSI_Y: "Y",
+            kVK_ANSI_T: "T", kVK_ANSI_O: "O", kVK_ANSI_U: "U", kVK_ANSI_I: "I",
+            kVK_ANSI_P: "P", kVK_ANSI_L: "L", kVK_ANSI_J: "J", kVK_ANSI_K: "K",
+            kVK_ANSI_N: "N", kVK_ANSI_M: "M",
+            kVK_ANSI_1: "1", kVK_ANSI_2: "2", kVK_ANSI_3: "3", kVK_ANSI_4: "4",
+            kVK_ANSI_5: "5", kVK_ANSI_6: "6", kVK_ANSI_7: "7", kVK_ANSI_8: "8",
+            kVK_ANSI_9: "9", kVK_ANSI_0: "0",
+        ]
+        return letterMap[vk]
+    }
+
+    /// 特殊键 virtualKey → Unicode 符号。
+    /// 单独成函数：与 specialKeyCode（正向 String→Int）解耦，因符号是展示语义而非解析语义。
+    private static func specialKeySymbol(_ vk: Int) -> String? {
+        switch vk {
+        case kVK_Escape:     return "⎋"
+        case kVK_Return:     return "↩"
+        case kVK_Space:      return "␣"
+        case kVK_Tab:        return "⇥"
+        case kVK_Delete:     return "⌫"
+        case kVK_UpArrow:    return "↑"
+        case kVK_DownArrow:  return "↓"
+        case kVK_LeftArrow:  return "←"
+        case kVK_RightArrow: return "→"
+        default:             return nil
+        }
+    }
+
     // MARK: - modifier 名 → CGEventFlags（对齐 Python _FLAG，vibe_control.py:43-46）
 
     private static func modifierFlag(_ name: String) -> CGEventFlags? {
