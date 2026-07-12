@@ -40,3 +40,37 @@ G(1) e6b25ad: Python v0.1 归档至 archive/python-v0.1/ + README/CHANGELOG/CONT
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: Complete docs i18n and macOS Settings redesign
+
+**Date**: 2026-07-12
+**Task**: Complete docs i18n and macOS Settings redesign
+**Branch**: `master`
+
+### Summary
+
+Completed bilingual user docs, archived docs-i18n, redesigned Settings as sidebar-detail, added native key recording with multi-modifier support, fixed Accessibility settings navigation, verified 31 tests, and reinstalled the validated app.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bf9f6c2` | (see git log) |
+| `7c825ee` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
