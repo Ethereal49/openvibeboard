@@ -1,161 +1,114 @@
-# ⌨️ OpenVibeBoard
+**English** | [简体中文](./README.zh-CN.md)
 
-> 不改固件，给 ESP32-S3 键盘（上游代号 voicestick）做 macOS 端接管：把物理按键映射成 shell 命令、击键或文本输入。
+# OpenVibeBoard
 
-原生 Swift menu bar app：状态栏常驻、串口监听，物理按键即触发动作，配置面板改完热生效。v0.2.0 起 Swift 重写（v0.1 Python 单文件版见 [`archive/python-v0.1/`](archive/python-v0.1/)）。
+> Take over an ESP32-S3 keyboard on macOS without changing its firmware. Map physical buttons to shell commands, keyboard events, or text input.
 
-## 特性
+OpenVibeBoard is a native Swift menu bar app. It listens to the keyboard's USB CDC log, dispatches configured actions, and provides a native Settings window. The Swift implementation replaced the archived Python v0.1 client.
 
-- 📌 **状态栏常驻** —— SwiftUI `MenuBarExtra`，开机可自启（`SMAppService`，应用内勾选，无需改系统文件）
-- 🔌 **串口接管** —— 直接读 ESP32-S3 的 USB CDC 日志，不碰固件（ORSSerialPort）
-- ⚙️ **原生配置面板** —— SwiftUI Settings 改按键映射，保存即热生效（替代 v0.1 的 Web UI）
-- ⌨️ **三种动作** —— `cmd`（shell 命令）/ `key`（击键）/ `text`（粘贴文本）
-- 🎯 **两种模式** —— `tap`（瞬时）/ `hold`（按住，支持语音软件「按住录音」）
-- 🀄 **中文友好** —— `text` 动作走剪贴板粘贴（`NSPasteboard` + `Cmd+V`），绕过中文输入法
+## Features
 
-## 前提条件
+- Persistent menu bar utility with optional launch at login via `SMAppService`.
+- USB CDC serial monitoring through `ORSSerialPort`.
+- Native SwiftUI Settings for key mappings with explicit save and live reload.
+- Three action types: `cmd` (shell command), `key` (keyboard event), and `text` (clipboard paste).
+- Two key modes: `tap` and `hold`.
+- Chinese-friendly text input through `NSPasteboard` + `Cmd+V`, avoiding input method conversion.
 
-- **macOS 15+**（用 `MenuBarExtra`、SwiftUI Settings Tab API、`SMAppService`）
-- **Xcode 16+** 与 **[xcodegen](https://github.com/yonaskolb/XcodeGen)**（`brew install xcodegen`）
-- 串口 `/dev/cu.usbmodem3101` 未被占用（其他占用该端口的程序需先退出）
-- 键盘仍以 ESP-IDF 日志形式输出按键事件（无需改固件）
+## Requirements
 
-## 快速开始
+- macOS 15 or later.
+- Xcode 16 or later.
+- [xcodegen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`.
+- The keyboard must expose its ESP-IDF log through `/dev/cu.usbmodem3101` (or the path configured in the source).
+- The serial device must not be held by another program.
+
+## Build and Run
 
 ```bash
-# 1. 克隆
 git clone https://github.com/Ethereal49/openvibeboard.git
 cd openvibeboard
-
-# 2. 生成 Xcode 工程（读 project.yml）
 xcodegen generate
-
-# 3. 用 Xcode 打开，⌘R 运行
 open OpenVibeBoard.xcodeproj
 ```
 
-首次运行：状态栏出现 OpenVibeBoard 图标 → 系统弹「辅助功能」授权（系统设置 → 隐私与安全性 → 辅助功能，勾选 OpenVibeBoard）。授权后物理按键即触发动作。
+Run the `OpenVibeBoard` scheme with `Cmd+R`. The menu bar icon appears after launch. On the first run, grant Accessibility permission in System Settings -> Privacy & Security -> Accessibility. The menu bar item includes a direct link to that pane when permission is missing.
 
-> 也可命令行构建：`xcodebuild -project OpenVibeBoard.xcodeproj -scheme OpenVibeBoard build`。
+You can also build from the command line:
 
-## 工作原理
-
-键盘（ESP32-S3）通过 USB CDC 持续输出 ESP-IDF 日志，按键事件行格式：
-
-```
-button down kN    # 按下（N = 1-4）
-button up kN      # 松开
+```bash
+xcodebuild -project OpenVibeBoard.xcodeproj -scheme OpenVibeBoard build
 ```
 
-App 架构：
+## How It Works
 
-```
-MenuBarExtra（状态栏入口）
-  └─ SerialMonitor        ORSSerialPort 开 /dev/cu.usbmodem3101，按行解析 button down/up
-       └─ ActionDispatcher  查 Config → 分发动作（cmd/key/text）
-            ├─ CmdRunner      cmd → Process 执行 shell
-            ├─ KeyInjector    key → CGEvent（tap 单发 / hold 按住，CGEventSetFlags 挂 modifier）
-            └─ (text)         NSPasteboard 写入 + CGEvent 发 Cmd+V
-ConfigStore（actor）        ~/Library/Application Support/OpenVibeBoard/config.json 持久化
+The keyboard emits lines such as:
+
+```text
+button down k1
+button up k1
 ```
 
-### 动作类型
+The app parses those events, looks up the matching `KeyConfig`, and dispatches the action through `ActionDispatcher`:
 
-| type | 说明 | 触发方式 | value 示例 |
-|------|------|----------|-----------|
-| `cmd` | Shell 命令 | `Process`（非阻塞） | `open -a Codex` |
-| `key` | 击键 | CGEvent（tap / hold 共用注入路径） | `ctrl+c`、`option+d`、`esc` |
-| `text` | 输入文本 | 剪贴板 `NSPasteboard` + `Cmd+V`（绕过输入法） | `继续` |
-
-### 模式（仅 `key` 类型有效）
-
-| mode | 行为 | 实现 |
-|------|------|------|
-| `tap` | 按下即触发一次 | CGEvent 单发 keydown+keyup |
-| `hold` | 按下保持 key-down，松开 key-up | CGEvent（modifier 用 `CGEventSetFlags` 挂 flag） |
-
-> `text` 类型用 `enter` 字段（默认 `true`）控制粘贴后是否补一个回车；`mode` 对 `cmd`/`text` 无效。
->
-> 注：v0.1 的 `tap` 走 osascript，v0.2 统一走 CGEvent（合并注入路径，flags 处理一致）。
-
-## 配置
-
-状态栏菜单 → **设置…**（或 ⌘,）打开 SwiftUI 配置面板，编辑按键映射，保存即热生效。配置持久化在 `~/Library/Application Support/OpenVibeBoard/config.json`（schema 与 v0.1 兼容）。
-
-默认按键映射：
-
-| 键 | 动作 |
-|----|------|
-| k1 | `cmd`：`open -a Codex` |
-| k2 | `text`：粘贴「继续」+ 回车 |
-| k3 | `key` tap：`ctrl+c` |
-| k4 | `key` hold：`option+d`（语音软件按住录音） |
-
-击键 value 格式：`option+d` / `ctrl+c` / `cmd+v` / `esc` / `tab` / `enter` / `space` / 单字符。
-
-### 应用内开机自启
-
-状态栏菜单 → **登录时启动** 勾选。基于 `SMAppService.mainApp`（注册到系统设置 → 通用 → 登录项），不需 launchd、不改系统文件。再次勾除即取消。
-
-## 权限
-
-首次运行 macOS 会弹授权（系统设置 → 隐私与安全性）：
-
-- **辅助功能** —— 按键注入（`key` tap/hold、`text` 粘贴的 `Cmd+V`）需要；缺失则动作静默失效
-- **自动化（Apple 事件）** —— `cmd` 动作里若含 osascript / AppleScript 命令会触发（已声明 `NSAppleEventsUsageDescription`）
-
-> App 为 sandbox（`app-sandbox`）+ 串口 entitlement（`device.serial`），ad-hoc 签名。首次授权辅助功能时若被系统设置忽略，删除该项再勾选一次即可（ad-hoc 签名 TCC 的已知痛点）。
-
-## 故障排查
-
-| 现象 | 原因 / 解决 |
-|------|------------|
-| 按键无反应 | 多为辅助功能未授权 / 被系统忽略；系统设置 → 辅助功能，删掉 OpenVibeBoard 再勾选 |
-| 串口监听不起 | `/dev/cu.usbmodem3101` 被占用，或键盘 USB 断连（拔插键盘重新枚举） |
-| 改配置后某键失灵 | 优先排查键盘 USB 重连（按键事件没到），再看配置面板的 value 是否合法 |
-| hold 组合键只打出单字符 / 卡住 | 单独发 modifier keydown 的已知坑，本项目用 `CGEventSetFlags` 挂 flag 规避；若复现确认 KeyInjector 路径未被绕过 |
-| 多 modifier 组合（如 `ctrl+shift+d`）无效 | 当前只支持单 modifier，见路线图 |
-
-## 项目结构
-
-```
-openvibeboard/
-├── project.yml                       # xcodegen 工程描述（target / 依赖 / deployment）
-├── OpenVibeBoard.xcodeproj/          # xcodegen 生成（勿手改）
-├── OpenVibeBoard/                    # 源码
-│   ├── OpenVibeBoardApp.swift        #   App 入口（MenuBarExtra）
-│   ├── MenuBarView.swift             #   状态栏菜单
-│   ├── Actions/ActionDispatcher.swift#   动作分发（cmd/key/text → 执行）
-│   ├── Key/KeyInjector.swift         #   CGEvent 按键注入（parseKey/tap/press/release）
-│   ├── Serial/SerialMonitor.swift    #   ORSSerialPort 串口监听 + 行解析
-│   ├── Models/Config.swift           #   配置模型 + Application Support 持久化（actor）
-│   ├── Settings/                     #   SwiftUI 配置面板（SettingsView/KeyMappingsView/AboutView）
-│   ├── LaunchAtLogin/LaunchAtLogin.swift  # SMAppService 自启
-│   ├── Permissions/Accessibility.swift#   辅助功能权限检查
-│   └── OpenVibeBoard.entitlements    #   sandbox + device.serial
-├── OpenVibeBoardTests/               # Swift Testing（parseKey/Codable/parseLine/decideAction 纯逻辑）
-├── archive/python-v0.1/              # v0.1 Python 版归档（串口协议 / CGEvent flags 坑作逻辑参考）
-└── .trellis/spec/                    # 编码约定（AI sub-agent 自动加载）
+```text
+MenuBarExtra
+  -> SerialMonitor
+  -> ActionDispatcher
+       -> CmdRunner       (cmd)
+       -> KeyInjector     (key)
+       -> TextInjector    (text)
+ConfigStore actor         ~/Library/Application Support/OpenVibeBoard/config.json
 ```
 
-## 开发
+## Actions and Modes
 
-本项目用 Trellis 管理开发流程，编码约定沉淀在 `.trellis/spec/`。改代码前先读对应 spec，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+| Type | Behavior | Example |
+| --- | --- | --- |
+| `cmd` | Run a shell command without blocking the UI | `open -a Codex` |
+| `key` | Send a keyboard event through `CGEvent` | `ctrl+c`, `option+d`, `esc` |
+| `text` | Paste text through the clipboard | `继续` |
 
-跑测试：
+`key` actions support `tap` (keydown followed by keyup) and `hold` (keydown until the physical button is released). Modifier flags are attached to the character key event so they do not leak into later events.
+
+The Settings recorder accepts combinations such as `cmd+shift+d`; users do not need to type the configuration syntax manually.
+
+For `text` actions, `enter` controls whether the app sends Return after pasting. The `mode` field is only meaningful for `key` actions.
+
+## Default Mappings
+
+| Button | Default action |
+| --- | --- |
+| `k1` | `cmd`: `open -a Codex` |
+| `k2` | `text`: paste `继续` and press Return |
+| `k3` | `key` tap: `ctrl+c` |
+| `k4` | `key` hold: `option+d` |
+
+Mappings are stored in `~/Library/Application Support/OpenVibeBoard/config.json`. The schema remains compatible with the Python v0.1 configuration.
+
+## Permissions and Troubleshooting
+
+- **Accessibility**: required for `key` actions and the `Cmd+V` part of `text` actions. Use the menu bar item's `打开授权设置…` action or open System Settings -> Privacy & Security -> Accessibility manually.
+- **Apple Events**: shell commands that invoke `osascript` or AppleScript may request Automation permission.
+- **Serial connection fails**: release `/dev/cu.usbmodem3101` from `screen`, Arduino IDE, the Python client, or another serial tool, then reconnect the keyboard.
+- **A key stops working**: check the serial connection first, then inspect the mapping in Settings.
+- **A hold combination emits only one character or leaves a modifier stuck**: verify that the event went through `KeyInjector`; modifier flags must be attached to the character keydown.
+
+## Development
+
+Trellis stores project conventions in `.trellis/spec/`. Read the relevant spec before changing the app.
 
 ```bash
 xcodegen generate
 xcodebuild test -project OpenVibeBoard.xcodeproj -scheme OpenVibeBoard
 ```
 
-> Xcode 16 Debug 构建启用 **Debug Dylib Support**：项目代码编进 `OpenVibeBoard.debug.dylib`，主 `Contents/MacOS/OpenVibeBoard` 只是 launcher stub。用 `nm` 验证符号要查 `.debug.dylib`，查主二进制会误判「代码没编进去」。Release 构建无此机制。
+The archived Python implementation is under [`archive/python-v0.1/`](archive/python-v0.1/).
 
-## 路线图
+## Roadmap
 
-- [ ] 多 modifier 组合键支持（当前 hold/录制均只支持单 modifier）
-- [ ] 打包分发（签名 / 公证 / GitHub Release）
+- Package, sign, notarize, and publish GitHub releases.
 
-## 许可证
+## License
 
 [MIT](LICENSE)

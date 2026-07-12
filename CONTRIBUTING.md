@@ -1,32 +1,55 @@
-# 贡献指南
+**English** | [简体中文](./CONTRIBUTING.zh-CN.md)
 
-欢迎贡献！提 issue 或 PR 前请先读这份指南。
+# Contributing
 
-## 开发环境
+Thanks for helping improve OpenVibeBoard. Keep changes focused and explain the user-facing reason for each change.
+
+## Development Setup
 
 ```bash
 git clone https://github.com/Ethereal49/openvibeboard.git
 cd openvibeboard
-xcodegen generate                            # 读 project.yml 生成 OpenVibeBoard.xcodeproj
-open OpenVibeBoard.xcodeproj                 # Xcode 里 ⌘R 运行
+brew install xcodegen
+xcodegen generate
+open OpenVibeBoard.xcodeproj
 ```
 
-运行需要：macOS 15+、Xcode 16+、[xcodegen](https://github.com/yonaskolb/XcodeGen)（`brew install xcodegen`）、授权「辅助功能」（见 [README](README.md) 权限章节）。依赖（ORSSerialPort）由 SPM 自动拉取。
+Development requires macOS 15+, Xcode 16+, and Accessibility permission for runtime keyboard injection. `ORSSerialPort` is resolved automatically through Swift Package Manager.
 
-## 编码约定
+## Project Conventions
 
-本项目用 Trellis 管理开发流程，**编码约定的唯一事实来源是 `.trellis/spec/`**：
+Trellis specs under `.trellis/spec/` are the source of truth for implementation conventions:
 
-- [`backend/`](.trellis/spec/backend/) —— Swift app 约定（CGEvent modifier flag 坑、串口协议、Config schema、actor 并发、串口错误码、stderr 日志）
-- [`guides/`](.trellis/spec/guides/) —— 通用思考指南（语言无关）
+- [`backend/`](.trellis/spec/backend/) covers Swift app structure, the `CGEvent` modifier flag contract, serial handling, config persistence, actor isolation, and logging.
+- [`guides/`](.trellis/spec/guides/) contains cross-layer and code-reuse checklists.
 
-改代码前先读对应 spec。**约定优先于个人偏好**；若认为某约定有害，先开 issue 讨论，不要偷偷另搞一套。
+Read the relevant spec before editing code. Keep SwiftUI scene structure explicit, keep AppKit bridges narrow, and preserve the existing config schema unless a migration is planned.
 
-> v0.1 的 Web UI 约定已弃（SwiftUI Settings 替代），`frontend/` 目录已删除。
+## Testing
 
-## 提交规范
+Run the full test target before submitting a change:
 
-- 小步提交，commit message 写清「改了什么 + 为什么」。
-- 不引入新依赖前先讨论（SPM 依赖尤其要先过 `project.yml`）。
-- 改 `Key/KeyInjector.swift` 或 `Actions/ActionDispatcher.swift` 的按键注入 / 动作分发逻辑后，务必手动回归验证 `cmd` / `key tap` / `key hold` / `text` 四种动作（C 实测门，验证步骤见 `.trellis/spec/backend/quality-guidelines.md`）。
-- 改 `Serial/SerialMonitor.swift` 的行解析后，补 `OpenVibeBoardTests/SerialMonitorTests.swift` 对应分支。
+```bash
+xcodegen generate
+xcodebuild test -project OpenVibeBoard.xcodeproj -scheme OpenVibeBoard
+```
+
+Pure logic is covered by Swift Testing. Changes to `KeyInjector`, `ActionDispatcher`, `CmdRunner`, serial handling, or permissions also need the relevant manual check described in `.trellis/spec/backend/quality-guidelines.md`.
+
+For input injection changes, manually verify `cmd`, `key` tap, `key` hold, and `text`. The `key` hold path is especially important: press and hold the physical button, confirm the modifier remains active, then release it and confirm no modifier state leaks into the next event.
+
+## Commit Guidelines
+
+- Keep commits small and scoped to one concern.
+- Explain what changed and why in the commit message.
+- Do not edit the generated `OpenVibeBoard.xcodeproj` by hand; update `project.yml` and regenerate it.
+- Do not add a new dependency without explaining the need and updating `project.yml`.
+- If a serial parser branch changes, add or update the corresponding test in `OpenVibeBoardTests/`.
+
+## Reporting Issues
+
+Include the macOS version, Xcode version, keyboard model, serial path, the exact mapping, and relevant log output. Do not include private configuration values or credentials.
+
+## Pull Requests
+
+Describe the behavior change, list the validation commands, and call out any manual hardware or permission checks that were not available. Keep unrelated formatting or generated-file changes out of the pull request.
