@@ -60,9 +60,7 @@ struct OpenVibeBoardApp: App {
         }
         .menuBarExtraStyle(.menu)
 
-        // 阶段 D：Settings 场景。macOS 13 用 Settings { ... } scene 形式；
-        // 不能用 macOS 14+ 独有的 SettingsLink / EnvironmentValues.openSettings。
-        // 打开方式：MenuBarView 里调 NSApp.sendAction(Selector(("showSettingsWindow:")), ...)。
+        // Settings 场景由菜单栏的 openSettings() 打开；关于信息走系统标准 About Panel。
         Settings {
             SettingsView()
         }

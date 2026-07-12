@@ -22,14 +22,14 @@ struct MenuBarView: View {
         // 未授权时红色提示（对齐 Python HAS_* 降级 + 菜单图标状态提示的语义）。
         if !Accessibility.isTrusted {
             VStack(alignment: .leading, spacing: 2) {
-                Text("⚠️ 未授权辅助功能")
+                Text("辅助功能权限未开启")
                     .font(.caption)
                     .foregroundStyle(.red)
-                Text("CGEvent 按键注入将静默失效")
+                Text("快捷键和文本动作无法执行")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Button("重新请求授权") {
-                    Accessibility.ensure()
+                Button("打开授权设置…") {
+                    Accessibility.openSystemSettings()
                 }
             }
             Divider()
@@ -37,7 +37,10 @@ struct MenuBarView: View {
 
         // 阶段 B：串口连接状态 + 最近事件（观测门）。
         VStack(alignment: .leading, spacing: 2) {
-            Text("状态：\(serial.status.rawValue)")
+            Label(
+                serial.status == .connected ? "键盘已连接" : "键盘\(serial.status.rawValue)",
+                systemImage: serial.status == .connected ? "checkmark.circle.fill" : "keyboard.badge.ellipsis"
+            )
             if let err = serial.lastError, serial.status == .error {
                 Text(err)
                     .font(.caption)
@@ -45,11 +48,11 @@ struct MenuBarView: View {
                     .lineLimit(2)
             }
             if let ev = serial.lastEvent {
-                Text("最近事件：\(ev.button) \(ev.pressed ? "▼" : "▲")")
+                Text("最近按键：\(ev.button) \(ev.pressed ? "按下" : "松开")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text("最近事件：（等待物理按键）")
+                Text("等待物理按键")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

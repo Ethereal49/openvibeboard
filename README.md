@@ -10,7 +10,7 @@ OpenVibeBoard is a native Swift menu bar app. It listens to the keyboard's USB C
 
 - Persistent menu bar utility with optional launch at login via `SMAppService`.
 - USB CDC serial monitoring through `ORSSerialPort`.
-- Native SwiftUI Settings for key mappings with explicit save and live reload.
+- Native sidebar-detail Settings for key mappings with a fixed save bar and live reload.
 - Three action types: `cmd` (shell command), `key` (keyboard event), and `text` (clipboard paste).
 - Two key modes: `tap` and `hold`.
 - Chinese-friendly text input through `NSPasteboard` + `Cmd+V`, avoiding input method conversion.
@@ -88,7 +88,7 @@ Mappings are stored in `~/Library/Application Support/OpenVibeBoard/config.json`
 
 ## Permissions and Troubleshooting
 
-- **Accessibility**: required for `key` actions and the `Cmd+V` part of `text` actions. Use the menu bar item's `打开授权设置…` action or open System Settings -> Privacy & Security -> Accessibility manually.
+- **Accessibility**: required for `key` actions and the `Cmd+V` part of `text` actions. The menu bar action explicitly launches System Settings and opens Privacy & Security -> Accessibility.
 - **Apple Events**: shell commands that invoke `osascript` or AppleScript may request Automation permission.
 - **Serial connection fails**: release `/dev/cu.usbmodem3101` from `screen`, Arduino IDE, the Python client, or another serial tool, then reconnect the keyboard.
 - **A key stops working**: check the serial connection first, then inspect the mapping in Settings.

@@ -4,6 +4,19 @@
 
 本项目所有重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 新增
+
+- 原生组合键录制控件：显示 macOS keycap，并支持多个 modifier。
+- 「打开授权设置…」会显式启动 System Settings 并进入 Accessibility 页面。
+
+### 变更
+
+- Settings 从纵向堆叠表单改为 sidebar-detail 布局，保存栏固定在窗口底部。
+- 删除重复的「关于」Tab，统一使用 macOS 标准 About Panel。
+- 精简菜单栏状态和权限文案。
+
 ## [0.2.0] - 2026-07-07
 
 Swift 原生重写：从单文件 Python 守护进程改为 SwiftUI menu bar app。

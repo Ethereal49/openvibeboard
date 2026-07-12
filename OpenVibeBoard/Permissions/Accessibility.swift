@@ -17,6 +17,7 @@
 //
 
 import ApplicationServices
+import AppKit
 import Foundation
 
 /// Accessibility 权限检查/请求。所有方法静态调用，无状态。
@@ -39,6 +40,37 @@ enum Accessibility {
         ]
         _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
         return false
+    }
+
+    /// 用户主动点击时，明确打开 System Settings → Privacy & Security → Accessibility。
+    /// `ensure()` 的系统 prompt 只保证首次请求，不保证被拒绝后再次打开设置页。
+    @MainActor
+    static func openSystemSettings() {
+        guard let applicationURL = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.apple.systempreferences"
+        ), let paneURL = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        ) else {
+            _ = ensure()
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(
+            at: applicationURL,
+            configuration: configuration
+        ) { application, error in
+            guard error == nil else {
+                _ = ensure()
+                return
+            }
+
+            DispatchQueue.main.async {
+                NSWorkspace.shared.open(paneURL)
+                application?.activate(options: [.activateAllWindows])
+            }
+        }
     }
 
     /// 运行时快速检查（每次按键前调，纳秒级开销）。

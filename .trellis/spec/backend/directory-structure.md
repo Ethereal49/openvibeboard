@@ -35,11 +35,12 @@ OpenVibeBoard/
   Actions/
     ActionDispatcher.swift             动作分发 + decideAction 纯函数 + Action 枚举 + CmdRunner + TextInjector
   Key/
-    KeyInjector.swift                  CGEvent 按键注入：parseKey / tap / press / release + label 反向渲染
+    KeyInjector.swift                  CGEvent 按键注入：parseKey / descriptor / tap / press / release
   Settings/
-    SettingsView.swift                 Settings 场景根（TabView：按键 / 关于）
-    KeyMappingsView.swift              按键映射 Form（编辑/保存/重置/预览）
-    AboutView.swift                    关于页
+    SettingsView.swift                 Settings 场景根
+    KeyMappingsView.swift              sidebar-detail 映射列表 + 固定保存栏
+    KeyMappingEditorView.swift         单个映射的类型化编辑表单
+    KeyRecorderView.swift              AppKit 键盘事件采集 + SwiftUI keycap 展示
   LaunchAtLogin/
     LaunchAtLogin.swift                SMAppService.mainApp register/unregister/状态查询
   Permissions/
@@ -93,7 +94,7 @@ ESP32 串口字节流
 - **`type`**：`"cmd"`（shell 命令）/ `"key"`（击键）/ `"text"`（输入文本）。cmd/text 的 mode 无效。
 - **`value`**：
   - cmd：shell 字符串（如 `"open -a Codex"`）。
-  - key：含可选 modifier 的描述（`option+d` / `ctrl+c` / `esc` / `enter` / 单字符）。单 modifier 限制（见 quality-guidelines）。
+  - key：含可选 modifier 的描述（`option+d` / `cmd+shift+d` / `esc` / `enter` / 单字符）。Settings 录制器会生成规范描述。
   - text：要输入的文本（中文等任意字符）。
 - **`mode`**：`"tap"`（瞬时，CGEvent 单发 keydown+keyup）或 `"hold"`（按住，CGEvent keydown 等松开 keyup）。**仅 key 类型有效**。
 - **`enter`**：仅 text 类型，布尔（默认 true），控制粘贴后是否补一个回车。

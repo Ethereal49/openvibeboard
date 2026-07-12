@@ -9,7 +9,7 @@
 //  parseKey 是 fileprivate/private 不行——它在 KeyInjector 内部声明为 static，
 //  Swift 的 enum static 方法默认 internal，测试 target 可直接调。
 //
-//  核心断言：单 modifier + 别名 / 无 modifier / 特殊键 / 非法 / 单 modifier 限制。
+//  核心断言：单/多 modifier + 别名 / 无 modifier / 特殊键 / 非法。
 //  守护 Python spec 的 flags 坑语义（quality-guidelines.md:7-32）——
 //  parseKey 错了，CGEvent flags 就错了，整条注入链废。
 //
@@ -95,18 +95,28 @@ enum ParseKeyTests {
         #expect(KeyInjector.parseKey(input) == nil)
     }
 
-    // MARK: - 单 modifier 限制（核心硬门：quality-guidelines.md 标的最重要坑之一）
+    // MARK: - 多 modifier（录制器输出的规范格式）
 
-    /// `ctrl+shift+d` 应该只取第一个 `+`，modifier="ctrl"，key="shift+d"。
-    /// "shift+d" 在 charKeyCode 里查不到（不是单字符），所以**整体返回 nil**，
-    /// 而不是误支持多 modifier。
-    ///
-    /// ⚠ 这个用例的断言点：**不是**期望 (kVK_ANSI_D, .maskControl)。
-    /// 复查 Python 行为：vibe_control.py 的 `key.split("+", 1)` 后 charStr="shift+d"，
-    /// `CHAR_CODES.get("shift+d")` 也是 None → 整体 KeyError/None。
-    /// Swift 行为对齐：charKeyCode("shift+d") → nil → parseKey 返回 nil。
-    @Test("多 modifier 输入不误支持")
-    static func multiModifierRejected() {
-        #expect(KeyInjector.parseKey("ctrl+shift+d") == nil)
+    @Test("多 modifier 组合键")
+    static func multiModifierAccepted() throws {
+        let r = try #require(KeyInjector.parseKey("cmd+shift+d"))
+        #expect(r.virtualKey == CGKeyCode(kVK_ANSI_D))
+        #expect(r.modifiers == [.maskCommand, .maskShift])
+    }
+
+    @Test("录制事件转规范描述")
+    static func descriptorFromEvent() {
+        #expect(
+            KeyInjector.descriptor(
+                for: CGKeyCode(kVK_ANSI_C),
+                modifiers: [.maskCommand, .maskShift]
+            ) == "cmd+shift+c"
+        )
+        #expect(
+            KeyInjector.descriptor(
+                for: CGKeyCode(kVK_Return),
+                modifiers: []
+            ) == "enter"
+        )
     }
 }

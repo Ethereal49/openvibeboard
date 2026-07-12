@@ -122,7 +122,7 @@ nonisolated static func parseLine(_ line: String) -> ButtonEvent? {
 
 ## 权限缺失 = 警告，非崩溃
 
-- **Accessibility 未授权** —— `ActionDispatcher.handle` 守门 log + `lastDeniedAt = Date()`（菜单栏图标变红提示）+ 不发 CGEvent。`Accessibility.ensure()` 在启动时弹一次系统对话框，运行时不重复弹（避免骚扰）。
+- **Accessibility 未授权** —— `ActionDispatcher.handle` 守门 log + `lastDeniedAt = Date()`（菜单栏图标变红提示）+ 不发 CGEvent。`Accessibility.ensure()` 在启动时弹一次系统对话框，运行时不重复弹（避免骚扰）；用户主动点击菜单时用 `openSystemSettings()` 明确导航到 Accessibility 设置页。
 - **串口 entitlement 缺** —— `serialPort(_:didEncounterError:)` 收到 EPERM(1) → log + status=.error + 重连（重连修不了，但让用户改 entitlement 后无需重启）。
 - **SMAppService register/unregister 失败** —— `LaunchAtLogin.enable/disable` 用 `do/try/catch` 吞错 + log（「大声失败」规则 12：不静默吞，log 错误让 UI 勾选态反映未注册）。
 

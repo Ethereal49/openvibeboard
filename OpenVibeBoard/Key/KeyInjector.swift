@@ -6,13 +6,13 @@
 //
 //  逐行复刻 Python vibe_control.py 的 _post / hold_down / hold_up：
 //    - _post（vibe_control.py:48-52）：CGEventCreateKeyboardEvent → CGEventSetFlags → CGEventPost
-//    - hold_down（:150-161）：char keydown 直接挂 modifier flag（单 modifier 限制）
+//    - hold_down（:150-161）：char keydown 直接挂 modifier flags
 //    - hold_up（:164-172）：keyup 不带 flag（让系统自动释放 modifier）
 //
 //  ⚠ CGEvent flags 坑（spec quality-guidelines.md:7-32，跨语言硬约束）：
 //  modifier flag 必须挂在 char keydown 上，**禁止单独发 modifier keydown**。
 //  违反会导致 modifier 状态残留/字符 repeat（spec 标的最重要坑）。
-//  单 modifier 场景纯 .flags 安全（多 modifier 是后续扩展，不在阶段 C 范围）。
+//  多 modifier 同样合并到 char keydown 的 flags，禁止拆成独立 modifier 事件。
 //
 //  与 Python 的有意偏离（主会话裁决）：
 //    tap 也走 CGEvent（合并注入路径）。Python 的 tap 用 osascript 是历史包袱，
@@ -86,23 +86,26 @@ enum KeyInjector {
     /// 解析 "option+d" / "ctrl+c" / "esc" / "enter" / "a" 等 → (virtualKey, modifiers)。
     ///
     /// 对齐 Python _char_code（vibe_control.py:144-147）+ hold_down 的 mod split（:153-157）。
-    /// **单 modifier 限制**：只支持 `mod+key`，多 modifier（如 `ctrl+shift+d`）是后续扩展
-    /// （spec quality-guidelines.md:65 已记录）。
+    /// 支持一个或多个 modifier（如 `cmd+shift+d`）。最后一段必须是实际按键。
     ///
     /// 返回 nil 表示 key 描述无法识别（运行时分发器会 log + 跳过，不崩）。
     static func parseKey(_ key: String) -> (virtualKey: CGKeyCode, modifiers: CGEventFlags)? {
-        // 拆 modifier（与 Python key.split("+", 1) 对齐，只取第一个 +）
-        if let plusIdx = key.firstIndex(of: "+") {
-            let modStr = String(key[..<plusIdx]).lowercased()
-            let charStr = String(key[key.index(after: plusIdx)...]).lowercased()
+        let parts = key
+            .split(separator: "+", omittingEmptySubsequences: false)
+            .map { String($0).trimmingCharacters(in: .whitespaces).lowercased() }
 
-            guard let modFlag = modifierFlag(modStr) else {
+        if parts.count > 1 {
+            guard let charStr = parts.last, !charStr.isEmpty,
+                  let vk = specialKeyCode(charStr) ?? charKeyCode(charStr) else {
                 return nil
             }
-            guard let vk = charKeyCode(charStr) else {
-                return nil
+
+            var flags: CGEventFlags = []
+            for modifier in parts.dropLast() {
+                guard let modFlag = modifierFlag(modifier) else { return nil }
+                flags.insert(modFlag)
             }
-            return (CGKeyCode(vk), modFlag)
+            return (CGKeyCode(vk), flags)
         }
 
         // 无 modifier：查 KEY_CODES（特殊键/数字）或 CHAR_CODES（字母数字）
@@ -123,7 +126,7 @@ enum KeyInjector {
     /// 纯函数（无 IO / 无 actor），便于后续在 test target 直接断言（F 阶段测试风格）。
     ///
     /// modifier 顺序固定 ⌃⌥⇧⌘（系统偏好设置 → 键盘快捷键里的标准顺序），避免用户输入
-    /// `ctrl+shift` 与 `shift+ctrl` 渲染出不同串。单 modifier 场景（parseKey 当前限制）也兼容。
+    /// `ctrl+shift` 与 `shift+ctrl` 渲染出不同串。
     static func label(for virtualKey: CGKeyCode, modifiers: CGEventFlags) -> String {
         var s = ""
         // modifier 按系统标准顺序拼接
@@ -133,6 +136,19 @@ enum KeyInjector {
         if modifiers.contains(.maskCommand)   { s += "⌘" }
         s += charSymbol(for: Int(virtualKey)) ?? "?"
         return s
+    }
+
+    /// 把录制到的 virtual key 和 modifier 转成可持久化的规范描述。
+    /// UI 录制器只负责采集事件，解析和持久化格式仍由 KeyInjector 统一拥有。
+    static func descriptor(for virtualKey: CGKeyCode, modifiers: CGEventFlags) -> String? {
+        guard let key = keyName(for: Int(virtualKey)) else { return nil }
+        var parts: [String] = []
+        if modifiers.contains(.maskCommand) { parts.append("cmd") }
+        if modifiers.contains(.maskControl) { parts.append("ctrl") }
+        if modifiers.contains(.maskAlternate) { parts.append("option") }
+        if modifiers.contains(.maskShift) { parts.append("shift") }
+        parts.append(key)
+        return parts.joined(separator: "+")
     }
 
     /// virtualKey → 可读字符/符号的反向映射（charKeyCode/specialKeyCode 的反向表）。
@@ -160,6 +176,34 @@ enum KeyInjector {
             kVK_ANSI_9: "9", kVK_ANSI_0: "0",
         ]
         return letterMap[vk]
+    }
+
+    private static func keyName(for vk: Int) -> String? {
+        switch vk {
+        case kVK_Escape: return "esc"
+        case kVK_Return: return "enter"
+        case kVK_Space: return "space"
+        case kVK_Tab: return "tab"
+        case kVK_Delete: return "delete"
+        case kVK_UpArrow: return "up"
+        case kVK_DownArrow: return "down"
+        case kVK_LeftArrow: return "left"
+        case kVK_RightArrow: return "right"
+        default: break
+        }
+
+        let names: [Int: String] = [
+            kVK_ANSI_A: "a", kVK_ANSI_S: "s", kVK_ANSI_D: "d", kVK_ANSI_F: "f",
+            kVK_ANSI_H: "h", kVK_ANSI_G: "g", kVK_ANSI_Z: "z", kVK_ANSI_X: "x",
+            kVK_ANSI_C: "c", kVK_ANSI_V: "v", kVK_ANSI_B: "b", kVK_ANSI_Q: "q",
+            kVK_ANSI_W: "w", kVK_ANSI_E: "e", kVK_ANSI_R: "r", kVK_ANSI_Y: "y",
+            kVK_ANSI_T: "t", kVK_ANSI_O: "o", kVK_ANSI_U: "u", kVK_ANSI_I: "i",
+            kVK_ANSI_P: "p", kVK_ANSI_L: "l", kVK_ANSI_J: "j", kVK_ANSI_K: "k",
+            kVK_ANSI_N: "n", kVK_ANSI_M: "m", kVK_ANSI_1: "1", kVK_ANSI_2: "2",
+            kVK_ANSI_3: "3", kVK_ANSI_4: "4", kVK_ANSI_5: "5", kVK_ANSI_6: "6",
+            kVK_ANSI_7: "7", kVK_ANSI_8: "8", kVK_ANSI_9: "9", kVK_ANSI_0: "0"
+        ]
+        return names[vk]
     }
 
     /// 特殊键 virtualKey → Unicode 符号。

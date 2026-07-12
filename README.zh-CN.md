@@ -10,14 +10,15 @@
 
 - 📌 **状态栏常驻** —— SwiftUI `MenuBarExtra`，开机可自启（`SMAppService`，应用内勾选，无需改系统文件）
 - 🔌 **串口接管** —— 直接读 ESP32-S3 的 USB CDC 日志，不碰固件（ORSSerialPort）
-- ⚙️ **原生配置面板** —— SwiftUI Settings 改按键映射，保存即热生效（替代 v0.1 的 Web UI）
+- ⚙️ **原生配置面板** —— sidebar-detail 布局编辑映射，固定保存栏，保存即热生效
+- 🎛️ **按键直接录制** —— 点击录制区后按组合键，自动显示 macOS keycap 并生成兼容配置
 - ⌨️ **三种动作** —— `cmd`（shell 命令）/ `key`（击键）/ `text`（粘贴文本）
 - 🎯 **两种模式** —— `tap`（瞬时）/ `hold`（按住，支持语音软件「按住录音」）
 - 🀄 **中文友好** —— `text` 动作走剪贴板粘贴（`NSPasteboard` + `Cmd+V`），绕过中文输入法
 
 ## 前提条件
 
-- **macOS 15+**（用 `MenuBarExtra`、SwiftUI Settings Tab API、`SMAppService`）
+- **macOS 15+**（用 `MenuBarExtra`、SwiftUI Settings、`SMAppService`）
 - **Xcode 16+** 与 **[xcodegen](https://github.com/yonaskolb/XcodeGen)**（`brew install xcodegen`）
 - 串口 `/dev/cu.usbmodem3101` 未被占用（其他占用该端口的程序需先退出）
 - 键盘仍以 ESP-IDF 日志形式输出按键事件（无需改固件）
@@ -82,7 +83,7 @@ ConfigStore（actor）        ~/Library/Application Support/OpenVibeBoard/config
 
 ## 配置
 
-状态栏菜单 → **设置…**（或 ⌘,）打开 SwiftUI 配置面板，编辑按键映射，保存即热生效。配置持久化在 `~/Library/Application Support/OpenVibeBoard/config.json`（schema 与 v0.1 兼容）。
+状态栏菜单 → **设置…**（或 ⌘,）打开 SwiftUI 配置面板。左侧选择映射，右侧编辑当前动作；保存栏固定在窗口底部，并显示未保存状态。配置持久化在 `~/Library/Application Support/OpenVibeBoard/config.json`（schema 与 v0.1 兼容）。
 
 默认按键映射：
 
@@ -93,7 +94,7 @@ ConfigStore（actor）        ~/Library/Application Support/OpenVibeBoard/config
 | k3 | `key` tap：`ctrl+c` |
 | k4 | `key` hold：`option+d`（语音软件按住录音） |
 
-击键 value 格式：`option+d` / `ctrl+c` / `cmd+v` / `esc` / `tab` / `enter` / `space` / 单字符。
+`key` 类型不需要手动填写 value：点击快捷键录制区，直接按下 `⌘` / `⌃` / `⌥` / `⇧` 与字母或特殊键，界面会显示对应 keycap，并生成 `cmd+shift+d`、`option+d`、`esc` 等规范值。一个或多个 modifier 均支持。
 
 ### 应用内开机自启
 
@@ -103,7 +104,7 @@ ConfigStore（actor）        ~/Library/Application Support/OpenVibeBoard/config
 
 首次运行 macOS 会弹授权（系统设置 → 隐私与安全性）：
 
-- **辅助功能** —— 按键注入（`key` tap/hold、`text` 粘贴的 `Cmd+V`）需要；缺失则动作静默失效
+- **辅助功能** —— 按键注入（`key` tap/hold、`text` 粘贴的 `Cmd+V`）需要；缺失时菜单可直接打开 System Settings 的 Accessibility 页面
 - **自动化（Apple 事件）** —— `cmd` 动作里若含 osascript / AppleScript 命令会触发（已声明 `NSAppleEventsUsageDescription`）
 
 > App 为 sandbox（`app-sandbox`）+ 串口 entitlement（`device.serial`），ad-hoc 签名。首次授权辅助功能时若被系统设置忽略，删除该项再勾选一次即可（ad-hoc 签名 TCC 的已知痛点）。
@@ -116,7 +117,7 @@ ConfigStore（actor）        ~/Library/Application Support/OpenVibeBoard/config
 | 串口监听不起 | `/dev/cu.usbmodem3101` 被占用，或键盘 USB 断连（拔插键盘重新枚举） |
 | 改配置后某键失灵 | 优先排查键盘 USB 重连（按键事件没到），再看配置面板的 value 是否合法 |
 | hold 组合键只打出单字符 / 卡住 | 单独发 modifier keydown 的已知坑，本项目用 `CGEventSetFlags` 挂 flag 规避；若复现确认 KeyInjector 路径未被绕过 |
-| 多 modifier 组合（如 `ctrl+shift+d`）无效 | 当前只支持单 modifier，见路线图 |
+| 「打开授权设置…」无反应 | 确认运行的是最新安装版；该操作会显式启动 System Settings 并打开 Accessibility 页面 |
 
 ## 项目结构
 
@@ -131,7 +132,7 @@ openvibeboard/
 │   ├── Key/KeyInjector.swift         #   CGEvent 按键注入（parseKey/tap/press/release）
 │   ├── Serial/SerialMonitor.swift    #   ORSSerialPort 串口监听 + 行解析
 │   ├── Models/Config.swift           #   配置模型 + Application Support 持久化（actor）
-│   ├── Settings/                     #   SwiftUI 配置面板（SettingsView/KeyMappingsView/AboutView）
+│   ├── Settings/                     #   SwiftUI sidebar-detail 配置面板 + AppKit 按键录制桥接
 │   ├── LaunchAtLogin/LaunchAtLogin.swift  # SMAppService 自启
 │   ├── Permissions/Accessibility.swift#   辅助功能权限检查
 │   └── OpenVibeBoard.entitlements    #   sandbox + device.serial
@@ -155,7 +156,6 @@ xcodebuild test -project OpenVibeBoard.xcodeproj -scheme OpenVibeBoard
 
 ## 路线图
 
-- [ ] 多 modifier 组合键支持（当前 hold/录制均只支持单 modifier）
 - [ ] 打包分发（签名 / 公证 / GitHub Release）
 
 ## 许可证

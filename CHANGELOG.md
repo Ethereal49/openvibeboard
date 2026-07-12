@@ -4,6 +4,19 @@
 
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Native combination-key recording with macOS-style keycaps and multi-modifier support.
+- A direct Accessibility settings action that launches System Settings and opens the correct privacy pane.
+
+### Changed
+
+- Replaced the vertically stacked mapping form with a sidebar-detail Settings layout and a fixed save bar.
+- Removed the duplicate About tab in favor of the standard macOS About panel.
+- Simplified menu bar status and permission text.
+
 ## [0.2.0] - 2026-07-07
 
 The project was rewritten as a native SwiftUI macOS menu bar app.

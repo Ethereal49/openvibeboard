@@ -68,11 +68,11 @@ await ConfigStore.shared.save(localConfig)
 
 > 与 v0.1 的有意偏离：v0.1 的 tap 走 `osascript keystroke`（Apple Events），hold 走 CGEvent；Swift 把 tap 也合并到 CGEvent 一条注入路径（主会话裁决，简化 + 统一 flags 处理）。spec 字面「tap 走 osascript」是 Python 历史包袱，Swift 不沿用。
 
-### 单 modifier 限制
+### modifier 组合与录制格式
 
-`KeyInjector.parseKey` 用 `key.firstIndex(of: "+")` 拆第一个 `+`，只支持 `mod+key`（如 `option+d`）。多 modifier（如 `ctrl+shift+d`）是后续扩展，当前会返回 nil（charStr=`shift+d` 查不到 keycode）。
+`KeyInjector.parseKey` 支持一个或多个 modifier，最后一段必须是实际按键，例如 `option+d`、`cmd+shift+d`。所有 modifier 合并到同一个 `CGEventFlags`，仍然只挂在 char keydown 上。
 
-Settings 录制也对齐此限制——只生成单 modifier 描述。
+Settings 使用 AppKit 第一响应者桥接直接录制键盘事件，并通过 `KeyInjector.descriptor` 生成规范描述；用户不需要手动输入 schema 字符串。
 
 ---
 
@@ -109,6 +109,7 @@ static func inject(_ text: String, enter: Bool = true) {
 - **辅助功能（Accessibility）** —— 系统设置 → 隐私与安全性 → 辅助功能。CGEvent 注入的唯一前置。
   - 未授权时 `ActionDispatcher.handle` 守门：`guard Accessibility.isTrusted else { log + return }`，不发任何 CGEvent。
   - 检查用 `AXIsProcessTrusted()`（纳秒级，每次按键前调）；请求弹窗用 `AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt: true])`。
+  - 启动时 `Accessibility.ensure()` 只负责首次系统 prompt；菜单中的“打开授权设置…”必须调用 `Accessibility.openSystemSettings()`，显式启动 `com.apple.systempreferences`、打开 `Privacy_Accessibility` deep link 并激活窗口。不要把 prompt API 当作设置页导航 API。
 - **串口** —— sandboxed app 需 `com.apple.security.device.serial` entitlement（`OpenVibeBoard.entitlements` 已声明）+ ad-hoc 签名（`CODE_SIGN_IDENTITY: "-"`）。缺 entitlement → `serialPort(_:didEncounterError:)` 收到 EPERM(1)。
 - **⚠ 退出占用串口的其他进程** —— 旧的 v0.1 Python 客户端（`vibe_control.py`）、其他串口工具（screen / Arduino IDE）开着 `/dev/cu.usbmodem3101` 会导致 EBUSY(16)。启动 app 前确认释放。
 
@@ -146,7 +147,7 @@ CGEvent / Process / NSPasteboard 的副作用无法用单元测试覆盖（见 `
 
 ## 测试与验证
 
-**单元测试**（`OpenVibeBoardTests/`，Swift Testing）：测纯逻辑——`KeyInjector.parseKey`（参数化覆盖单 modifier / 别名 / 特殊键 / 非法 / 多 modifier 不支持）、`KeyConfig`/`Config` Codable（v0.1 schema 兼容往返）、`defaultConfig`（守护 k1-k4 迁移意图）、`ConfigStore`（注入 URL 测 load/save/幂等）、`SerialMonitor.parseLine`（button down/up kN + 非法）、`ActionDispatcher.decideAction`（全分支参数化）。
+**单元测试**（`OpenVibeBoardTests/`，Swift Testing）：测纯逻辑——`KeyInjector.parseKey`（参数化覆盖单/多 modifier / 别名 / 特殊键 / 非法）、`KeyConfig`/`Config` Codable（v0.1 schema 兼容往返）、`defaultConfig`（守护 k1-k4 迁移意图）、`ConfigStore`（注入 URL 测 load/save/幂等）、`SerialMonitor.parseLine`（button down/up kN + 非法）、`ActionDispatcher.decideAction`（全分支参数化）。
 
 **不测**（实测门覆盖）：`KeyInjector.tap/press/release`（CGEvent 副作用）、`CmdRunner.run`（Process）、`TextInjector.inject`（NSPasteboard + CGEvent）、`LaunchAtLogin`（SMAppService 系统状态）、`SerialMonitor` 端口/重连/delegate（ORSSerialPort + 硬件）——这些由四动作实测门覆盖。
 
