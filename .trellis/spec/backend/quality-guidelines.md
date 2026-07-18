@@ -145,6 +145,16 @@ CGEvent / Process / NSPasteboard 的副作用无法用单元测试覆盖（见 `
 
 ---
 
+## 发布构建与信任边界
+
+- `scripts/package-release.sh` 是唯一发布打包入口，必须显式设置 `SIGNING_MODE=adhoc` 或 `SIGNING_MODE=developer-id`。
+- `adhoc` 只用于本机验证和 Draft 测试附件：要求 bundle、entitlements、`codesign --verify --deep --strict` 和 checksum 通过；Gatekeeper 被拒绝是预期结果，不能写成已公证。
+- `developer-id` 缺少 `DEVELOPER_ID_APPLICATION` 或 `NOTARYTOOL_PROFILE` 时必须在构建前退出，禁止回退到 ad-hoc。只有 `notarytool --wait`、`stapler validate` 和 `spctl --assess --type execute` 全部通过后才可生成正式归档。
+- CI 的普通测试不需要硬件、Accessibility、Developer ID 或公证 secrets；手动 release workflow 使用临时 keychain，运行结束必须清理证书和 API private key。
+- Draft GitHub Release 可以包含 `ad-hoc signed, unnotarized` 测试附件，但不创建正式 tag，也不作为生产安装包发布。
+
+---
+
 ## 测试与验证
 
 **单元测试**（`OpenVibeBoardTests/`，Swift Testing）：测纯逻辑——`KeyInjector.parseKey`（参数化覆盖单/多 modifier / 别名 / 特殊键 / 非法）、`KeyConfig`/`Config` Codable（v0.1 schema 兼容往返）、`defaultConfig`（守护 k1-k4 迁移意图）、`ConfigStore`（注入 URL 测 load/save/幂等）、`SerialMonitor.parseLine`（button down/up kN + 非法）、`ActionDispatcher.decideAction`（全分支参数化）。

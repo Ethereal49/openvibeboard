@@ -42,6 +42,7 @@ targets:
         CODE_SIGNING_REQUIRED: YES
         CODE_SIGNING_ALLOWED: YES
         CODE_SIGN_ENTITLEMENTS: OpenVibeBoard/OpenVibeBoard.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
   # 阶段 F：Swift Testing 测试 target。
   # type: bundle.unit-test 是 xcodegen 对 macOS unit test bundle 的标准映射，
   # Xcode 16+ 在此 target 内 `import Testing` 即可用 Swift Testing，无需额外依赖。
