@@ -58,14 +58,14 @@
 
 ## Acceptance Criteria
 
-- [ ] 串口可在 UI 中选择并持久化，切换后 live reconnect；有纯逻辑与状态测试。
-- [ ] 中英文 README 展示来自最新 App 的真实截图。
-- [ ] GitHub Actions build/test 通过，badge 指向真实 workflow。
-- [ ] Release 脚本能从 clean checkout 生成版本化产物与 SHA-256 checksum。
-- [ ] 签名、公证、staple、Gatekeeper 的实际状态有命令证据；缺凭据时明确 blocked，不做虚假完成声明。
-- [ ] 目标版本为 `v0.2.0` 的 Draft GitHub Release 已创建，测试附件、checksum 和目标 commit 一致，且未创建正式 Git tag、未公开发布。
-- [ ] README 已说明通过 GitHub Releases 手动更新，Sparkle 延期原因已记录。
-- [ ] 相关 spec、README、CHANGELOG 同步，测试通过，提交与 push 完成。
+- [x] 串口可在 UI 中选择并持久化，切换后 live reconnect；有纯逻辑与状态测试。
+- [x] 中英文 README 展示来自最新 App 的真实截图。
+- [x] GitHub Actions build/test 通过，badge 指向真实 workflow。
+- [x] Release 脚本能从 clean checkout 生成版本化产物与 SHA-256 checksum。
+- [x] 签名、公证、staple、Gatekeeper 的实际状态有命令证据；缺凭据时明确 blocked，不做虚假完成声明。
+- [x] 目标版本为 `v0.2.0` 的 Draft GitHub Release 已创建，测试附件、checksum 和目标 commit 一致，且未创建正式 Git tag、未公开发布。
+- [x] README 已说明通过 GitHub Releases 手动更新，Sparkle 延期原因已记录。
+- [x] 相关 spec、README、CHANGELOG 同步，测试通过，提交与 push 完成。
 
 ## Out of Scope
 
