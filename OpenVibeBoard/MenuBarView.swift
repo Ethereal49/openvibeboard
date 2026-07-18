@@ -41,6 +41,9 @@ struct MenuBarView: View {
                 serial.status == .connected ? "键盘已连接" : "键盘\(serial.status.rawValue)",
                 systemImage: serial.status == .connected ? "checkmark.circle.fill" : "keyboard.badge.ellipsis"
             )
+            Text(serial.configuredPath)
+                .font(.caption)
+                .foregroundStyle(.secondary)
             if let err = serial.lastError, serial.status == .error {
                 Text(err)
                     .font(.caption)

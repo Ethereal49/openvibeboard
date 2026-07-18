@@ -8,7 +8,7 @@
 
 ### 串口：错误码分流 + 自动重连
 
-`SerialMonitor` 的 `ORSSerialPortDelegate.serialPort(_:didEncounterError:)` 是所有串口错误的统一入口（open 失败 / read 出错 / ioctl 出错，`NSPOSIXErrorDomain`）。收到后**不崩**：打日志 + 关端口 + 5 秒后自动重连。
+`SerialMonitor` 的 `ORSSerialPortDelegate.serialPort(_:didEncounterError:)` 是所有串口错误的统一入口（open 失败 / read 出错 / ioctl 出错，`NSPOSIXErrorDomain`）。收到后**不崩**：打日志 + 关端口 + 5 秒后自动重连。用户切换串口时先取消旧重连任务、解除旧 port delegate 再关闭；所有 delegate callback 用实例 identity 守门，旧端口的延迟回调不得覆盖新端口状态。
 
 错误码语义（`Serial/SerialMonitor.swift`）：
 - **EPERM(1)** —— entitlement 缺（`com.apple.security.device.serial` 没加 / sandbox 未签名）。重连也修不了，但仍安排重连（用户改完 entitlement 后无需重启 app，代价是日志会刷，可接受）。

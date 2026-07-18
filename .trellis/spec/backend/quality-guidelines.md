@@ -111,7 +111,7 @@ static func inject(_ text: String, enter: Bool = true) {
   - 检查用 `AXIsProcessTrusted()`（纳秒级，每次按键前调）；请求弹窗用 `AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt: true])`。
   - 启动时 `Accessibility.ensure()` 只负责首次系统 prompt；菜单中的“打开授权设置…”必须调用 `Accessibility.openSystemSettings()`，显式启动 `com.apple.systempreferences`、打开 `Privacy_Accessibility` deep link 并激活窗口。不要把 prompt API 当作设置页导航 API。
 - **串口** —— sandboxed app 需 `com.apple.security.device.serial` entitlement（`OpenVibeBoard.entitlements` 已声明）+ ad-hoc 签名（`CODE_SIGN_IDENTITY: "-"`）。缺 entitlement → `serialPort(_:didEncounterError:)` 收到 EPERM(1)。
-- **⚠ 退出占用串口的其他进程** —— 旧的 v0.1 Python 客户端（`vibe_control.py`）、其他串口工具（screen / Arduino IDE）开着 `/dev/cu.usbmodem3101` 会导致 EBUSY(16)。启动 app 前确认释放。
+- **⚠ 退出占用所选串口的其他进程** —— 旧的 v0.1 Python 客户端（`vibe_control.py`）、其他串口工具（screen / Arduino IDE）开着 Settings 中选择的设备会导致 EBUSY(16)。启动 app 前确认释放。
 
 > 与 v0.1 的差异：v0.1 的 tap 走 osascript 需「自动化」授权（System Events），hold 走 CGEvent 需「辅助功能」。Swift 把 tap 也合并到 CGEvent，所以**只需辅助功能一项授权**，不再需要「自动化」。
 
@@ -167,7 +167,7 @@ CGEvent / Process / NSPasteboard 的副作用无法用单元测试覆盖（见 `
 ## 编码风格
 
 - 中文注释（与现有代码一致，对齐 v0.1）。
-- 类型/方法名 PascalCase / camelCase（Swift 惯例）；常量 `static let`（如 `SerialMonitor.path` / `baudRate`）。
+- 类型/方法名 PascalCase / camelCase（Swift 惯例）；常量 `static let`（如 `SerialMonitor.defaultPath` / `baudRate`）。
 - virtual key code 用 Carbon `kVK_ANSI_*` 符号常量（`Carbon.HIToolbox`），**不**硬编码 magic number。v0.1 Python 用硬编码数字表（`KEY_CODES`/`CHAR_CODES`），Swift 升级为符号常量。
 - `enum` + `static` 方法封装无状态能力（`KeyInjector` / `CmdRunner` / `TextInjector` / `Accessibility` / `LaunchAtLogin`），对齐 Swift 习惯（无实例状态的命名空间）。
 - `@MainActor` 标注 UI / ObservableObject（`SerialMonitor` / `ActionDispatcher`）；`nonisolated static` 标注纯函数（`parseLine` / `decideAction` / `parseKey` / `label`），让测试在 nonisolated 上下文直接调。

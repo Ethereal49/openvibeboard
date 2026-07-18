@@ -23,7 +23,7 @@ struct OpenVibeBoardApp: App {
     // 已有配置则加载到内存。后续阶段（B 串口读 / D Settings 写）共用同一 actor 实例。
     //
     // 阶段 B：SerialMonitor 在 @StateObject 构造时（init 后下一个 main runloop）自动 start()，
-    // 开始监听 /dev/cu.usbmodem3101。这里只持引用 + 注入到 MenuBarView。
+    // 开始监听用户选择的串口。这里只持引用并注入两个 scene。
     //
     // 阶段 C：ActionDispatcher 订阅 serial.buttonEvents，按 config 分发按键到
     // CmdRunner / TextInjector / KeyInjector。ActionDispatcher 作为 @StateObject 注入
@@ -63,6 +63,7 @@ struct OpenVibeBoardApp: App {
         // Settings 场景由菜单栏的 openSettings() 打开；关于信息走系统标准 About Panel。
         Settings {
             SettingsView()
+                .environmentObject(serial)
         }
     }
 }

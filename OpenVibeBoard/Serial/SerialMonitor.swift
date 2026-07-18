@@ -5,7 +5,7 @@
 //  阶段 B：串口监听（ORSSerialPort）。
 //
 //  复刻 Python vibe_control.py 的 serial_loop() 语义（vibe_control.py:209-230）：
-//    - 开 /dev/cu.usbmodem3101（PORT_SERIAL），115200（BAUD）
+//    - 打开用户选择的 USB CDC 串口，115200（BAUD）
 //    - 按行解析 "button (down|up) (k\d+)"，匹配则发 ButtonEvent
 //    - 串口异常（占用/拔除/缺权限）→ 打日志 + 5 秒后重连，守护进程不崩
 //
@@ -34,12 +34,14 @@ struct ButtonEvent: Equatable {
 /// 对齐 Python serial_loop 的"守护进程不崩"语义：
 /// 端口打开失败 / 运行中出错 / 设备被拔 → 仅打日志 + 重连，不抛异常。
 @MainActor
-final class SerialMonitor: NSObject, ObservableObject, ORSSerialPortDelegate {
+final class SerialMonitor: NSObject, ObservableObject, @preconcurrency ORSSerialPortDelegate {
 
     // MARK: - 常量（对齐 Python）
 
-    /// 对齐 Python PORT_SERIAL（vibe_control.py:63）。
-    static let path = "/dev/cu.usbmodem3101"
+    /// 没有保存偏好且当前没有可用设备时的兼容回退值。
+    nonisolated static let defaultPath = "/dev/cu.usbmodem3101"
+
+    nonisolated private static let portPreferenceKey = "serialPortPath"
 
     /// 对齐 Python BAUD = 115200（vibe_control.py:64）。
     /// ORSSerialPort 的 baudRate 是 NSNumber，这里用 Int 常量存，赋值时转 NSNumber。
@@ -88,6 +90,18 @@ final class SerialMonitor: NSObject, ObservableObject, ORSSerialPortDelegate {
         return ButtonEvent(button: button, pressed: pressed)
     }
 
+    /// 首次启动的端口选择策略。用户显式保存的路径永远优先，避免静默切换到其他设备。
+    nonisolated static func preferredPath(savedPath: String?, availablePaths: [String]) -> String {
+        if let savedPath, !savedPath.isEmpty {
+            return savedPath
+        }
+
+        return availablePaths
+            .filter { $0.hasPrefix("/dev/cu.usbmodem") }
+            .sorted()
+            .first ?? defaultPath
+    }
+
     // MARK: - 状态
 
     /// 当前连接状态（UI 显示用）。
@@ -101,6 +115,12 @@ final class SerialMonitor: NSObject, ObservableObject, ORSSerialPortDelegate {
     @Published private(set) var status: Status = .disconnected
     @Published private(set) var lastEvent: ButtonEvent?       // 最近一次按键事件（菜单显示用）
     @Published private(set) var lastError: String?            // 最近一次错误描述
+    @Published private(set) var configuredPath: String
+    @Published private(set) var availablePaths: [String]
+
+    var isConfiguredPortAvailable: Bool {
+        availablePaths.contains(configuredPath)
+    }
 
     /// 给下游订阅的按键事件流（阶段 B 仅 MenuBarView 订阅做展示；阶段 C ActionDispatcher 订阅做分发）。
     let buttonEvents = PassthroughSubject<ButtonEvent, Never>()
@@ -109,10 +129,27 @@ final class SerialMonitor: NSObject, ObservableObject, ORSSerialPortDelegate {
     private let lineDescriptor: ORSSerialPacketDescriptor
     private var reconnectWorkItem: DispatchWorkItem?
     private var isStarted = false
+    private var hasSavedPath: Bool
+    private var notificationObservers: [NSObjectProtocol] = []
+    private let defaults: UserDefaults
+    private let portManager: ORSSerialPortManager
 
     // MARK: - init
 
-    override init() {
+    override convenience init() {
+        self.init(defaults: .standard, automaticallyStarts: true)
+    }
+
+    /// `automaticallyStarts=false` 只用于状态单测，避免测试打开真实串口。
+    init(defaults: UserDefaults, automaticallyStarts: Bool) {
+        self.defaults = defaults
+        self.portManager = ORSSerialPortManager.shared()
+        let paths = Self.sortedPaths(from: portManager.availablePorts)
+        let savedPath = defaults.string(forKey: Self.portPreferenceKey)
+        self.availablePaths = paths
+        self.configuredPath = Self.preferredPath(savedPath: savedPath, availablePaths: paths)
+        self.hasSavedPath = savedPath?.isEmpty == false
+
         // maximumPacketLength：单包字节硬上限。"button down k12\n" ≈ 18 字节，填 64 留足余量。
         // 见 research note #7：填太小会丢 k10+ 的包；填 0/1 完全不可用。
         lineDescriptor = ORSSerialPacketDescriptor(
@@ -121,10 +158,20 @@ final class SerialMonitor: NSObject, ObservableObject, ORSSerialPortDelegate {
             userInfo: nil
         )
         super.init()
+        observeAvailablePorts()
+
         // 阶段 B：构造即启动。注意：MenuBarExtra 菜单内容的 onAppear 直到用户点开菜单才触发，
         // 串口监听不能等那时；这里在 init 后下一个 main runloop 立刻 open。
-        DispatchQueue.main.async { [weak self] in
-            self?.start()
+        if automaticallyStarts {
+            DispatchQueue.main.async { [weak self] in
+                self?.start()
+            }
+        }
+    }
+
+    deinit {
+        for observer in notificationObservers {
+            NotificationCenter.default.removeObserver(observer)
         }
     }
 
@@ -143,21 +190,26 @@ final class SerialMonitor: NSObject, ObservableObject, ORSSerialPortDelegate {
     /// 停止监听（app 退出时调）。
     func stop() {
         cancelReconnect()
-        port?.close()
+        let oldPort = port
         port = nil
+        oldPort?.delegate = nil
+        oldPort?.close()
         isStarted = false
         status = .disconnected
+    }
+
+    /// 保存并立即切换到用户选择的串口，不需要重启 App。
+    func selectPort(path: String) {
+        guard path != configuredPath else { return }
+        switchConfiguredPath(to: path, persist: true)
     }
 
     private func openPort() {
         guard port == nil else { return }
 
-        guard let p = ORSSerialPort(path: Self.path) else {
-            // path 不存在（设备未插）→ ORSSerialPort(path:) 返回 nil。
+        guard let p = portManager.availablePorts.first(where: { $0.path == configuredPath }) else {
             // 对齐 Python：不崩，等重连。
-            // 注意：这里不能 scheduleReconnect，因为 start() 是用户主动调用一次；
-            // 但 openPort 在重连链里也会走，所以重连靠 scheduleReconnect 维护。
-            log("串口 \(Self.path) 不可用（设备未插？），\(Int(Self.reconnectDelay)) 秒后重连")
+            log("串口 \(configuredPath) 不可用（设备未插？），\(Int(Self.reconnectDelay)) 秒后重连")
             status = .disconnected
             scheduleReconnect()
             return
@@ -177,6 +229,66 @@ final class SerialMonitor: NSObject, ObservableObject, ORSSerialPortDelegate {
         status = .connecting
         p.open()    // void；失败走 serialPort(_:didEncounterError:)
         port = p
+    }
+
+    private func switchConfiguredPath(to path: String, persist: Bool) {
+        cancelReconnect()
+
+        let oldPort = port
+        port = nil
+        oldPort?.delegate = nil
+        oldPort?.close()
+
+        configuredPath = path
+        lastEvent = nil
+        lastError = nil
+        status = .disconnected
+
+        if persist {
+            defaults.set(path, forKey: Self.portPreferenceKey)
+            hasSavedPath = true
+        }
+
+        if isStarted {
+            openPort()
+        }
+    }
+
+    private func observeAvailablePorts() {
+        let center = NotificationCenter.default
+        let names: [Notification.Name] = [.ORSSerialPortsWereConnected, .ORSSerialPortsWereDisconnected]
+        for name in names {
+            notificationObservers.append(center.addObserver(
+                forName: name,
+                object: portManager,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.refreshAvailablePorts()
+                }
+            })
+        }
+    }
+
+    private func refreshAvailablePorts() {
+        availablePaths = Self.sortedPaths(from: portManager.availablePorts)
+
+        if !hasSavedPath {
+            let automaticPath = Self.preferredPath(savedPath: nil, availablePaths: availablePaths)
+            if automaticPath != configuredPath {
+                switchConfiguredPath(to: automaticPath, persist: false)
+                return
+            }
+        }
+
+        if isStarted, port == nil, isConfiguredPortAvailable {
+            cancelReconnect()
+            openPort()
+        }
+    }
+
+    nonisolated private static func sortedPaths(from ports: [ORSSerialPort]) -> [String] {
+        ports.map(\.path).sorted()
     }
 
     /// 安排延迟重连（复刻 Python 的"循环重试"语义，但固定 5 秒避免 spin）。
@@ -214,6 +326,7 @@ extension SerialMonitor {
 
     // 端口已成功打开
     @objc func serialPortWasOpened(_ serialPort: ORSSerialPort) {
+        guard serialPort === port else { return }
         log("串口已打开")
         status = .connected
         lastError = nil
@@ -224,6 +337,7 @@ extension SerialMonitor {
     @objc func serialPort(_ serialPort: ORSSerialPort,
                           didReceivePacket packetData: Data,
                           matchingDescriptor descriptor: ORSSerialPacketDescriptor) {
+        guard serialPort === port else { return }
         // packetData 形如 "button down k3"；descriptor 已保证匹配 linePattern。
         guard let line = String(data: packetData, encoding: .utf8) else { return }
 
@@ -238,6 +352,7 @@ extension SerialMonitor {
     // @required（ORSSerialPort.h:588）：USB-CDC 设备拔掉 / 断电时回调。
     // 收到后必须立刻置 port=nil，否则 port 实例行为未定义。
     @objc func serialPortWasRemovedFromSystem(_ serialPort: ORSSerialPort) {
+        guard serialPort === port else { return }
         log("⚠️ 串口被移除（设备拔了？），\(Int(Self.reconnectDelay)) 秒后重连")
         port = nil
         status = .disconnected
@@ -251,6 +366,7 @@ extension SerialMonitor {
     //   ENXIO(6)  → 设备已拔，serialPortWasRemovedFromSystem 也会来
     //   ENOENT(2) → 路径不存在
     @objc func serialPort(_ serialPort: ORSSerialPort, didEncounterError error: Error) {
+        guard serialPort === port else { return }
         let nsError = error as NSError
         let msg = "串口错误: \(nsError.domain) \(nsError.code) \(nsError.localizedDescription)"
         log("⚠️ \(msg)")
@@ -259,12 +375,14 @@ extension SerialMonitor {
 
         // EBUSY / ENOENT → 等会儿重连。EPERM 是配置错误（entitlement），重连也修不了，
         // 但仍安排重连，避免用户改完 entitlement 后需重启 app（代价是日志会刷，可接受）。
-        port?.close()
         port = nil
+        serialPort.delegate = nil
+        serialPort.close()
         scheduleReconnect()
     }
 
     @objc func serialPortWasClosed(_ serialPort: ORSSerialPort) {
+        guard serialPort === port else { return }
         log("串口已关闭")
         status = .disconnected
     }

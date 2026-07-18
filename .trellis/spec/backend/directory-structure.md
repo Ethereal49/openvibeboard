@@ -9,7 +9,7 @@
 OpenVibeBoard 是 menu bar app，一个进程做三件事：
 
 1. **状态栏 UI** —— `MenuBarExtra`（`OpenVibeBoardApp.swift`）+ `MenuBarView`：状态栏图标、串口连接状态、Accessibility 授权提示、开机自启开关、打开设置、退出。
-2. **串口监听** —— `SerialMonitor`（`@MainActor` ObservableObject）：开 `/dev/cu.usbmodem3101`，ORSSerialPort 按包交付匹配 `button (down|up) (k\d+)` 的行，解析成 `ButtonEvent` 经 `PassthroughSubject` 推下游。
+2. **串口监听** —— `SerialMonitor`（`@MainActor` ObservableObject）：从 `UserDefaults` 读取用户选择的串口，ORSSerialPort 按包交付匹配 `button (down|up) (k\d+)` 的行，解析成 `ButtonEvent` 经 `PassthroughSubject` 推下游。
 3. **动作分发** —— `ActionDispatcher`（`@MainActor` ObservableObject）：订阅 `SerialMonitor.buttonEvents`，按 config 的 `type`/`mode` 分发到 `CmdRunner` / `TextInjector` / `KeyInjector`。
 
 `@main` 启动顺序（`OpenVibeBoardApp.init`）：
@@ -38,6 +38,7 @@ OpenVibeBoard/
     KeyInjector.swift                  CGEvent 按键注入：parseKey / descriptor / tap / press / release
   Settings/
     SettingsView.swift                 Settings 场景根
+    DeviceSettingsView.swift           串口选择、连接状态与固定波特率
     KeyMappingsView.swift              sidebar-detail 映射列表 + 固定保存栏
     KeyMappingEditorView.swift         单个映射的类型化编辑表单
     KeyRecorderView.swift              AppKit 键盘事件采集 + SwiftUI keycap 展示
@@ -120,6 +121,8 @@ typealias Config = [String: KeyConfig]
 - `load()` 幂等（多次调只读一次盘）；`snapshot()` 返回拷贝；`save(_:)` 原子写盘 + 内存更新。
 - 写盘用 `.prettyPrinted + .sortedKeys`（对齐 v0.1 的 `indent=2`，sortedKeys 让 git diff 稳定）+ `.atomic`（对齐 v0.1 的临时文件 + rename）。
 - `save()` 后**热生效**：下一次物理按键 `ActionDispatcher.handle` 调 `snapshot()` 读到新配置，无需重启 app。
+
+串口路径不是按键映射 schema 的一部分，单独保存在 `UserDefaults.serialPortPath`。`SerialMonitor` 是 configured path、available paths、active port 和 reconnect 状态的唯一 source of truth；Settings 与菜单栏只观察同一个实例。
 
 **并发语义**（对齐 v0.1 的 `CONFIG_LOCK`）：
 - `ConfigStore` 是 `actor`，所有读写经 actor 串行化。

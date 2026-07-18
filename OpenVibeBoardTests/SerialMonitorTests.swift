@@ -8,6 +8,7 @@
 //  副作用（端口/重连/ORSSerialPort delegate）由 B 阶段实测门覆盖，不在此测。
 //
 
+import Foundation
 import Testing
 @testable import OpenVibeBoard
 
@@ -37,5 +38,54 @@ enum ParseLineTests {
     ])
     static func invalid(line: String) {
         #expect(SerialMonitor.parseLine(line) == nil)
+    }
+}
+
+@Suite("SerialMonitor 串口选择")
+struct SerialPortSelectionTests {
+    @Test("保存路径优先，即使当前不可用")
+    func savedPathWins() {
+        let path = SerialMonitor.preferredPath(
+            savedPath: "/dev/cu.saved-device",
+            availablePaths: ["/dev/cu.usbmodem4101"]
+        )
+        #expect(path == "/dev/cu.saved-device")
+    }
+
+    @Test("无保存路径时稳定选择排序后的第一个 usbmodem")
+    func discoversUSBModem() {
+        let path = SerialMonitor.preferredPath(
+            savedPath: nil,
+            availablePaths: [
+                "/dev/cu.Bluetooth-Incoming-Port",
+                "/dev/cu.usbmodem4201",
+                "/dev/cu.usbmodem3101",
+            ]
+        )
+        #expect(path == "/dev/cu.usbmodem3101")
+    }
+
+    @Test("没有匹配设备时保留历史默认路径")
+    func fallsBackToHistoricalPath() {
+        let path = SerialMonitor.preferredPath(
+            savedPath: nil,
+            availablePaths: ["/dev/cu.Bluetooth-Incoming-Port"]
+        )
+        #expect(path == SerialMonitor.defaultPath)
+    }
+
+    @Test("手动选择会更新状态并持久化")
+    @MainActor
+    func selectionPersists() throws {
+        let suiteName = "SerialMonitorTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let monitor = SerialMonitor(defaults: defaults, automaticallyStarts: false)
+        monitor.selectPort(path: "/dev/cu.test-device")
+
+        #expect(monitor.configuredPath == "/dev/cu.test-device")
+        #expect(defaults.string(forKey: "serialPortPath") == "/dev/cu.test-device")
+        #expect(monitor.status == SerialMonitor.Status.disconnected)
     }
 }
