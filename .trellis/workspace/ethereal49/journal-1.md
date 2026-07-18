@@ -74,3 +74,41 @@ Completed bilingual user docs, archived docs-i18n, redesigned Settings as sideba
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Complete OpenVibeBoard v0.2.0 release readiness
+
+**Date**: 2026-07-19
+**Task**: Complete OpenVibeBoard v0.2.0 release readiness
+**Branch**: `master`
+
+### Summary
+
+Added configurable serial-device settings with persistence and live reconnect, real bilingual Settings screenshots, macOS CI, ad-hoc and credential-gated Developer ID packaging, manual GitHub Releases guidance, and created the v0.2.0 Draft Release. Developer ID signing and notarization remain blocked by missing credentials.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `896f924` | (see git log) |
+| `6eeb8be` | (see git log) |
+| `8c9856c` | (see git log) |
+| `c226b96` | (see git log) |
+| `39b7e87` | (see git log) |
+| `7615faa` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
