@@ -1,5 +1,7 @@
 [English](./README.md) | **简体中文**
 
+[![CI](https://github.com/Ethereal49/openvibeboard/actions/workflows/ci.yml/badge.svg)](https://github.com/Ethereal49/openvibeboard/actions/workflows/ci.yml)
+
 # ⌨️ OpenVibeBoard
 
 > 不改固件，给 ESP32-S3 键盘（上游代号 voicestick）做 macOS 端接管：把物理按键映射成 shell 命令、击键或文本输入。

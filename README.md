@@ -1,5 +1,7 @@
 **English** | [简体中文](./README.zh-CN.md)
 
+[![CI](https://github.com/Ethereal49/openvibeboard/actions/workflows/ci.yml/badge.svg)](https://github.com/Ethereal49/openvibeboard/actions/workflows/ci.yml)
+
 # OpenVibeBoard
 
 > Take over an ESP32-S3 keyboard on macOS without changing its firmware. Map physical buttons to shell commands, keyboard events, or text input.

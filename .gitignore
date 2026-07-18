@@ -20,6 +20,8 @@ OpenVibeBoard.xcworkspace/
 xcuserdata/
 DerivedData/
 build/
+.build/
+dist/
 
 # IDE / 编辑器
 .vscode/
