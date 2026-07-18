@@ -8,10 +8,16 @@
 
 原生 Swift menu bar app：状态栏常驻、串口监听，物理按键即触发动作，配置面板改完热生效。v0.2.0 起 Swift 重写（v0.1 Python 单文件版见 [`archive/python-v0.1/`](archive/python-v0.1/)）。
 
+## 界面
+
+![设备设置：USB 串口已连接](./docs/images/settings-device.png)
+
+![按键映射编辑器](./docs/images/settings-key-mappings.png)
+
 ## 特性
 
 - 📌 **状态栏常驻** —— SwiftUI `MenuBarExtra`，开机可自启（`SMAppService`，应用内勾选，无需改系统文件）
-- 🔌 **串口接管** —— 直接读 ESP32-S3 的 USB CDC 日志，不碰固件（ORSSerialPort）
+- 🔌 **串口接管** —— 在 Settings 选择设备，直接读 ESP32-S3 的 USB CDC 日志（ORSSerialPort）
 - ⚙️ **原生配置面板** —— sidebar-detail 布局编辑映射，固定保存栏，保存即热生效
 - 🎛️ **按键直接录制** —— 点击录制区后按组合键，自动显示 macOS keycap 并生成兼容配置
 - ⌨️ **三种动作** —— `cmd`（shell 命令）/ `key`（击键）/ `text`（粘贴文本）
@@ -22,7 +28,7 @@
 
 - **macOS 15+**（用 `MenuBarExtra`、SwiftUI Settings、`SMAppService`）
 - **Xcode 16+** 与 **[xcodegen](https://github.com/yonaskolb/XcodeGen)**（`brew install xcodegen`）
-- 串口 `/dev/cu.usbmodem3101` 未被占用（其他占用该端口的程序需先退出）
+- 键盘提供 USB 串口，且所选设备未被其他程序占用
 - 键盘仍以 ESP-IDF 日志形式输出按键事件（无需改固件）
 
 ## 快速开始
@@ -56,7 +62,7 @@ App 架构：
 
 ```
 MenuBarExtra（状态栏入口）
-  └─ SerialMonitor        ORSSerialPort 开 /dev/cu.usbmodem3101，按行解析 button down/up
+  └─ SerialMonitor        ORSSerialPort 开用户选择的串口，按行解析 button down/up
        └─ ActionDispatcher  查 Config → 分发动作（cmd/key/text）
             ├─ CmdRunner      cmd → Process 执行 shell
             ├─ KeyInjector    key → CGEvent（tap 单发 / hold 按住，CGEventSetFlags 挂 modifier）
@@ -98,6 +104,8 @@ ConfigStore（actor）        ~/Library/Application Support/OpenVibeBoard/config
 
 `key` 类型不需要手动填写 value：点击快捷键录制区，直接按下 `⌘` / `⌃` / `⌥` / `⇧` 与字母或特殊键，界面会显示对应 keycap，并生成 `cmd+shift+d`、`option+d`、`esc` 等规范值。一个或多个 modifier 均支持。
 
+在 Settings → **设备** 中选择键盘串口。显式选择会持久化，拔插设备或重启 App 后仍会连接该路径；没有保存值时优先选择第一个 `/dev/cu.usbmodem*` 设备。波特率固定为 115200。
+
 ### 应用内开机自启
 
 状态栏菜单 → **登录时启动** 勾选。基于 `SMAppService.mainApp`（注册到系统设置 → 通用 → 登录项），不需 launchd、不改系统文件。再次勾除即取消。
@@ -116,7 +124,7 @@ ConfigStore（actor）        ~/Library/Application Support/OpenVibeBoard/config
 | 现象 | 原因 / 解决 |
 |------|------------|
 | 按键无反应 | 多为辅助功能未授权 / 被系统忽略；系统设置 → 辅助功能，删掉 OpenVibeBoard 再勾选 |
-| 串口监听不起 | `/dev/cu.usbmodem3101` 被占用，或键盘 USB 断连（拔插键盘重新枚举） |
+| 串口监听不起 | 在 Settings → 设备选择当前串口，并确认它未被 screen、Arduino IDE 或其他程序占用 |
 | 改配置后某键失灵 | 优先排查键盘 USB 重连（按键事件没到），再看配置面板的 value 是否合法 |
 | hold 组合键只打出单字符 / 卡住 | 单独发 modifier keydown 的已知坑，本项目用 `CGEventSetFlags` 挂 flag 规避；若复现确认 KeyInjector 路径未被绕过 |
 | 「打开授权设置…」无反应 | 确认运行的是最新安装版；该操作会显式启动 System Settings 并打开 Accessibility 页面 |
@@ -156,9 +164,16 @@ xcodebuild test -project OpenVibeBoard.xcodeproj -scheme OpenVibeBoard
 
 > Xcode 16 Debug 构建启用 **Debug Dylib Support**：项目代码编进 `OpenVibeBoard.debug.dylib`，主 `Contents/MacOS/OpenVibeBoard` 只是 launcher stub。用 `nm` 验证符号要查 `.debug.dylib`，查主二进制会误判「代码没编进去」。Release 构建无此机制。
 
+## 更新与分发
+
+OpenVibeBoard 当前没有 app 内自动更新，通过 [GitHub Releases](https://github.com/Ethereal49/openvibeboard/releases) 手动下载新版本。Developer ID 签名并完成公证的构建公开前，请从源码构建。
+
+标记为 `ad-hoc signed, unnotarized` 的附件仅供测试，macOS Gatekeeper 拒绝是预期结果，不是生产安装包。
+
 ## 路线图
 
-- [ ] 打包分发（签名 / 公证 / GitHub Release）
+- [ ] 取得 Developer ID 凭据并发布已公证的 v0.2.0 构建
+- [ ] 分发信任链稳定后再评估自动更新
 
 ## 许可证
 

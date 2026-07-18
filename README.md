@@ -8,10 +8,16 @@
 
 OpenVibeBoard is a native Swift menu bar app. It listens to the keyboard's USB CDC log, dispatches configured actions, and provides a native Settings window. The Swift implementation replaced the archived Python v0.1 client.
 
+## Screenshots
+
+![Device settings showing a connected USB serial device](./docs/images/settings-device.png)
+
+![Key mapping editor](./docs/images/settings-key-mappings.png)
+
 ## Features
 
 - Persistent menu bar utility with optional launch at login via `SMAppService`.
-- USB CDC serial monitoring through `ORSSerialPort`.
+- Configurable USB CDC serial monitoring through `ORSSerialPort`.
 - Native sidebar-detail Settings for key mappings with a fixed save bar and live reload.
 - Three action types: `cmd` (shell command), `key` (keyboard event), and `text` (clipboard paste).
 - Two key modes: `tap` and `hold`.
@@ -22,7 +28,7 @@ OpenVibeBoard is a native Swift menu bar app. It listens to the keyboard's USB C
 - macOS 15 or later.
 - Xcode 16 or later.
 - [xcodegen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`.
-- The keyboard must expose its ESP-IDF log through `/dev/cu.usbmodem3101` (or the path configured in the source).
+- The keyboard must expose its ESP-IDF log through a USB serial device.
 - The serial device must not be held by another program.
 
 ## Build and Run
@@ -88,11 +94,13 @@ For `text` actions, `enter` controls whether the app sends Return after pasting.
 
 Mappings are stored in `~/Library/Application Support/OpenVibeBoard/config.json`. The schema remains compatible with the Python v0.1 configuration.
 
+Select the keyboard's serial device under Settings -> Device. OpenVibeBoard remembers an explicit selection and reconnects to it after unplugging or restarting the app. With no saved selection, it prefers the first available `/dev/cu.usbmodem*` device. The baud rate remains fixed at 115200.
+
 ## Permissions and Troubleshooting
 
 - **Accessibility**: required for `key` actions and the `Cmd+V` part of `text` actions. The menu bar action explicitly launches System Settings and opens Privacy & Security -> Accessibility.
 - **Apple Events**: shell commands that invoke `osascript` or AppleScript may request Automation permission.
-- **Serial connection fails**: release `/dev/cu.usbmodem3101` from `screen`, Arduino IDE, the Python client, or another serial tool, then reconnect the keyboard.
+- **Serial connection fails**: select the attached device under Settings -> Device and release it from `screen`, Arduino IDE, the Python client, or another serial tool.
 - **A key stops working**: check the serial connection first, then inspect the mapping in Settings.
 - **A hold combination emits only one character or leaves a modifier stuck**: verify that the event went through `KeyInjector`; modifier flags must be attached to the character keydown.
 
@@ -107,9 +115,16 @@ xcodebuild test -project OpenVibeBoard.xcodeproj -scheme OpenVibeBoard
 
 The archived Python implementation is under [`archive/python-v0.1/`](archive/python-v0.1/).
 
+## Updates and Distribution
+
+OpenVibeBoard does not include an in-app updater. Updates are delivered manually through [GitHub Releases](https://github.com/Ethereal49/openvibeboard/releases). Until a Developer ID signed and notarized build is published, build the app from source.
+
+Artifacts labeled `ad-hoc signed, unnotarized` are test builds. macOS Gatekeeper is expected to reject them, so they are not production installers.
+
 ## Roadmap
 
-- Package, sign, notarize, and publish GitHub releases.
+- Obtain Developer ID credentials and publish a notarized v0.2.0 build.
+- Evaluate automatic updates after the distribution trust chain is established.
 
 ## License
 

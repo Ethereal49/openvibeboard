@@ -10,12 +10,15 @@
 
 - 原生组合键录制控件：显示 macOS keycap，并支持多个 modifier。
 - 「打开授权设置…」会显式启动 System Settings 并进入 Accessibility 页面。
+- Settings 可选择串口设备，并支持持久化、自动发现与热重连。
+- 新增 macOS CI，以及明确区分 ad-hoc 与 Developer ID 的凭据门控打包流程。
 
 ### 变更
 
 - Settings 从纵向堆叠表单改为 sidebar-detail 布局，保存栏固定在窗口底部。
 - 删除重复的「关于」Tab，统一使用 macOS 标准 About Panel。
 - 精简菜单栏状态和权限文案。
+- 明确 GitHub Releases 为手动更新渠道，app 内自动更新继续延期。
 
 ## [0.2.0] - 2026-07-07
 
